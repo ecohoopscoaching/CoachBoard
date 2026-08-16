@@ -30,6 +30,28 @@ export const CourtThumbnail: React.FC<CourtThumbnailProps> = ({
     ? 'aspect-[94/50]'
     : 'aspect-[50/47]';
 
+  // SVG coordinate transformation helpers
+  const viewBoxWidth = isVertical ? 500 : isHorizontal ? 940 : 500;
+  const viewBoxHeight = isVertical ? 940 : isHorizontal ? 500 : 470;
+  const toSvgX = (x: number) => (x / 100) * viewBoxWidth;
+  const toSvgY = (y: number) => (y / 100) * viewBoxHeight;
+
+  const buildPath = (pts: { x: number; y: number }[]) => {
+    if (!pts || pts.length < 2) return '';
+    let d = `M ${toSvgX(pts[0].x)},${toSvgY(pts[0].y)}`;
+    for (let i = 1; i < pts.length; i++) {
+      d += ` L ${toSvgX(pts[i].x)},${toSvgY(pts[i].y)}`;
+    }
+    return d;
+  };
+
+  const getEndAngle = (pts: { x: number; y: number }[]) => {
+    if (!pts || pts.length < 2) return 0;
+    const pEnd = pts[pts.length - 1];
+    const pPrev = pts[Math.max(0, pts.length - 2)];
+    return Math.atan2(toSvgY(pEnd.y) - toSvgY(pPrev.y), toSvgX(pEnd.x) - toSvgX(pPrev.x)) * (180 / Math.PI);
+  };
+
   return (
     <div className={`relative w-full ${aspectClass} rounded-xl overflow-hidden bg-[#e8cfb0] border border-[#262626] select-none ${className}`}>
       {/* 1. SCALED COURT SVG */}
@@ -57,6 +79,30 @@ export const CourtThumbnail: React.FC<CourtThumbnailProps> = ({
             <line x1="72" y1="0" x2="72" y2="300" stroke="#ba8c57" strokeWidth="0.8" strokeOpacity="0.4" />
             <line x1="96" y1="0" x2="96" y2="300" stroke="#ba8c57" strokeWidth="0.8" strokeOpacity="0.4" />
           </pattern>
+
+          <marker
+            id="thumb-arrow-black"
+            viewBox="0 0 10 10"
+            refX="6"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#ffffff" stroke="#000000" strokeWidth="1.5" />
+          </marker>
+
+          <marker
+            id="thumb-arrow-orange"
+            viewBox="0 0 10 10"
+            refX="6"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="#ea580c" stroke="#ffffff" strokeWidth="1.5" />
+          </marker>
         </defs>
 
         {/* Hardwood floor fill */}
@@ -151,6 +197,75 @@ export const CourtThumbnail: React.FC<CourtThumbnailProps> = ({
             <path d="M 887,205 A 45,45 0 0,0 887,295" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
           </g>
         )}
+
+        {/* ================= TACTICAL DRAWING ELEMENTS ================= */}
+        {drawings && drawings.map(drw => {
+          const pathData = buildPath(drw.points);
+          if (!pathData) return null;
+          const endPt = drw.points[drw.points.length - 1];
+          const endX = toSvgX(endPt.x);
+          const endY = toSvgY(endPt.y);
+          const endAngle = getEndAngle(drw.points);
+
+          return (
+            <g key={drw.id}>
+              {/* CUT: Solid Line with Arrow */}
+              {drw.type === 'cut' && (
+                <>
+                  <path d={pathData} fill="none" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" opacity="0.9" />
+                  <path d={pathData} fill="none" stroke="#0a0a0a" strokeWidth="3" strokeLinecap="round" markerEnd="url(#thumb-arrow-black)" />
+                </>
+              )}
+
+              {/* PASS: Dashed Line with Arrow */}
+              {drw.type === 'pass' && (
+                <>
+                  <path d={pathData} fill="none" stroke="#ffffff" strokeWidth="5" strokeDasharray="6,4" opacity="0.9" />
+                  <path d={pathData} fill="none" stroke="#0a0a0a" strokeWidth="3" strokeDasharray="6,4" markerEnd="url(#thumb-arrow-black)" />
+                </>
+              )}
+
+              {/* DRIBBLE: Wavy / Dashed with Arrow */}
+              {drw.type === 'dribble' && (
+                <>
+                  <path d={pathData} fill="none" stroke="#ffffff" strokeWidth="5" strokeDasharray="4,3" opacity="0.9" />
+                  <path d={pathData} fill="none" stroke="#0a0a0a" strokeWidth="3" strokeDasharray="4,3" markerEnd="url(#thumb-arrow-black)" />
+                </>
+              )}
+
+              {/* SCREEN: Solid Line with T-Bar */}
+              {drw.type === 'screen' && (
+                <>
+                  <path d={pathData} fill="none" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" opacity="0.9" />
+                  <path d={pathData} fill="none" stroke="#0a0a0a" strokeWidth="3" strokeLinecap="round" />
+                  <g transform={`translate(${endX}, ${endY}) rotate(${endAngle + 90})`}>
+                    <line x1="-8" y1="0" x2="8" y2="0" stroke="#0a0a0a" strokeWidth="3.5" strokeLinecap="round" />
+                  </g>
+                </>
+              )}
+
+              {/* SHOT: Orange Arc with Arrow */}
+              {drw.type === 'shot' && (
+                <>
+                  <path d={pathData} fill="none" stroke="#ffffff" strokeWidth="5" strokeDasharray="6,4" opacity="0.9" />
+                  <path d={pathData} fill="none" stroke="#ea580c" strokeWidth="3" strokeDasharray="6,4" markerEnd="url(#thumb-arrow-orange)" />
+                </>
+              )}
+
+              {/* HANDOFF: Solid Line with Double Bar */}
+              {drw.type === 'handoff' && (
+                <>
+                  <path d={pathData} fill="none" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" opacity="0.9" />
+                  <path d={pathData} fill="none" stroke="#0a0a0a" strokeWidth="3" strokeLinecap="round" />
+                  <g transform={`translate(${endX}, ${endY}) rotate(${endAngle + 90})`}>
+                    <line x1="-7" y1="-2" x2="7" y2="-2" stroke="#0a0a0a" strokeWidth="2.5" strokeLinecap="round" />
+                    <line x1="-7" y1="2" x2="7" y2="2" stroke="#0a0a0a" strokeWidth="2.5" strokeLinecap="round" />
+                  </g>
+                </>
+              )}
+            </g>
+          );
+        })}
       </svg>
 
       {/* 2. PIECES RENDERED WITH CRISP TOKENS */}

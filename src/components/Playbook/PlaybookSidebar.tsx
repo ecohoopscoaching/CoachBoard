@@ -22,8 +22,11 @@ import {
   Download,
   Save,
   Check,
+  Eye,
 } from 'lucide-react';
 import { soundEffects } from '../../services/soundEffects';
+import { PlayCardDetailView } from './PlayCardDetailView';
+import { CourtThumbnail } from '../Court/CourtThumbnail';
 
 interface PlaybookSidebarProps {
   isOpen: boolean;
@@ -69,6 +72,7 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
   );
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
+  const [selectedPlay, setSelectedPlay] = React.useState<Play | null>(null);
   const [saveToast, setSaveToast] = React.useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -119,8 +123,8 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
   };
 
   // Export a single play (.json)
-  const handleExportSinglePlay = (play: Play, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleExportSinglePlay = (play: Play, e?: React.MouseEvent) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     const dataStr = JSON.stringify(play, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -168,9 +172,34 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
       }
     };
     reader.readAsText(file);
-    // Reset file input value so same file can be uploaded again if needed
     e.target.value = '';
   };
+
+  // 1. DEDICATED CARD VIEW (When a user clicks on a card)
+  if (selectedPlay) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md animate-fade-in p-0 sm:p-4">
+        <div className="w-full max-w-6xl h-full sm:h-[94vh] bg-[#0c0d10] border border-zinc-800 rounded-none sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+          <PlayCardDetailView
+            play={selectedPlay}
+            onBack={() => setSelectedPlay(null)}
+            onLoadPlay={play => {
+              onLoadPlay(play);
+              setSelectedPlay(null);
+              onClose();
+            }}
+            onDeletePlay={id => {
+              if (onDeletePlay) onDeletePlay(id);
+              setSelectedPlay(null);
+              showFeedback('Play deleted from library');
+            }}
+            onExportPlay={play => handleExportSinglePlay(play)}
+            isSavedPlay={activeTab === 'saved'}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/85 backdrop-blur-md animate-fade-in">
@@ -347,80 +376,114 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
               </p>
             </div>
           ) : (
-            filteredPlays.map(play => (
-              <div
-                key={play.id}
-                className="bg-zinc-900/70 border border-zinc-800/90 hover:border-zinc-500 rounded-2xl p-4 flex flex-col gap-2.5 transition-all hover:shadow-xl group"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="inline-block bg-zinc-800 text-zinc-200 border border-zinc-700/80 text-[9px] font-black uppercase px-2 py-0.5 rounded-md mb-1.5 tracking-wider">
-                      {play.category} • {play.courtType} court
-                    </span>
-                    <h3 className="text-sm font-black text-white group-hover:text-zinc-200 transition-colors">
-                      {play.title}
-                    </h3>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={e => handleExportSinglePlay(play, e)}
-                      className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-                      title="Download Play JSON"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </button>
-                    {activeTab === 'saved' && (
-                      <button
-                        onClick={() => {
-                          soundEffects.playClick();
-                          onDeletePlay(play.id);
-                          showFeedback(`Deleted "${play.title}"`);
-                        }}
-                        className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
-                        title="Delete Play"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {play.description && (
-                  <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                    {play.description}
-                  </p>
-                )}
-
-                {/* Tags */}
-                {play.tags && play.tags.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1 mt-1">
-                    {play.tags.map(tag => (
-                      <span
-                        key={tag}
-                        className="flex items-center gap-1 text-[10px] font-medium text-zinc-300 bg-zinc-950/80 px-2 py-0.5 rounded border border-zinc-800"
-                      >
-                        <Tag className="w-2.5 h-2.5 text-zinc-400" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Load Button */}
-                <button
+            filteredPlays.map(play => {
+              const firstFrame = play.keyframes?.[0] || { pieces: [], ball: null, drawings: [] };
+              return (
+                <div
+                  key={play.id}
                   onClick={() => {
                     soundEffects.playClick();
-                    onLoadPlay(play);
-                    onClose();
+                    setSelectedPlay(play);
                   }}
-                  className="mt-2 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-200 hover:text-zinc-950 font-black text-xs text-zinc-200 border border-zinc-700/80 transition-all shadow-sm group/btn"
+                  className="bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800/90 hover:border-[#c4ced4]/70 rounded-2xl p-3.5 flex flex-col gap-2.5 transition-all hover:shadow-2xl cursor-pointer group"
                 >
-                  <PlayIcon className="w-3.5 h-3.5 fill-current text-zinc-400 group-hover/btn:text-zinc-950" />
-                  <span>Load Play Diagram</span>
-                </button>
-              </div>
-            ))
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span className="inline-block bg-zinc-800 text-[#c4ced4] border border-zinc-700/80 text-[9px] font-black uppercase px-2 py-0.5 rounded-md mb-1 tracking-wider">
+                        {play.category} • {play.courtType} court
+                      </span>
+                      <h3 className="text-sm font-black text-white group-hover:text-zinc-100 transition-colors truncate">
+                        {play.title}
+                      </h3>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={e => handleExportSinglePlay(play, e)}
+                        className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                        title="Download Play JSON"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                      {activeTab === 'saved' && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            soundEffects.playClick();
+                            onDeletePlay(play.id);
+                            showFeedback(`Deleted "${play.title}"`);
+                          }}
+                          className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                          title="Delete Play"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Visual Court Thumbnail Preview on Card */}
+                  <div className="w-full rounded-xl overflow-hidden border border-zinc-800 group-hover:border-zinc-700 bg-black transition-colors pointer-events-none">
+                    <CourtThumbnail
+                      pieces={firstFrame.pieces}
+                      ball={firstFrame.ball}
+                      drawings={firstFrame.drawings}
+                      courtType={play.courtType}
+                      className="w-full max-h-36 object-contain"
+                    />
+                  </div>
+
+                  {play.description && (
+                    <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+                      {play.description}
+                    </p>
+                  )}
+
+                  {/* Tags */}
+                  {play.tags && play.tags.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1">
+                      {play.tags.map(tag => (
+                        <span
+                          key={tag}
+                          className="flex items-center gap-1 text-[10px] font-medium text-zinc-300 bg-zinc-950/80 px-2 py-0.5 rounded border border-zinc-800"
+                        >
+                          <Tag className="w-2.5 h-2.5 text-zinc-400" />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Actions Row: Open Page & Load */}
+                  <div className="mt-1 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        soundEffects.playClick();
+                        setSelectedPlay(play);
+                      }}
+                      className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold text-xs text-zinc-200 border border-zinc-700 transition-all shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-[#c4ced4]" />
+                      <span>View & Notes</span>
+                    </button>
+
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        soundEffects.playClick();
+                        onLoadPlay(play);
+                        onClose();
+                      }}
+                      className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-white hover:bg-zinc-200 font-black text-xs text-zinc-950 border border-white transition-all shadow-sm"
+                    >
+                      <PlayIcon className="w-3.5 h-3.5 fill-current text-zinc-950" />
+                      <span>Load to Board</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
 
