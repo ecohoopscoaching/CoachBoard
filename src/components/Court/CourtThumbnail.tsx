@@ -12,6 +12,7 @@ interface CourtThumbnailProps {
 export const CourtThumbnail: React.FC<CourtThumbnailProps> = ({
   pieces = [],
   ball,
+  drawings = [],
   courtType = 'half',
   className = '',
 }) => {
