@@ -24,6 +24,10 @@ import {
   Pause,
   RotateCcw,
   Repeat,
+  Wrench,
+  Sparkles,
+  X,
+  Layers,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'coachboard_saved_plays_v2';
@@ -76,6 +80,8 @@ export function App() {
   const [isPlaybookOpen, setIsPlaybookOpen] = React.useState(false);
   const [isNotesModalOpen, setIsNotesModalOpen] = React.useState(false);
   const [isOutputModalOpen, setIsOutputModalOpen] = React.useState(false);
+  const [isMobilePhasesOpen, setIsMobilePhasesOpen] = React.useState(false);
+  const [isMobileToolboxOpen, setIsMobileToolboxOpen] = React.useState(false);
 
   // Interpolated animation piece positions
   const [animatedPieces, setAnimatedPieces] = React.useState<Piece[]>([]);
@@ -878,29 +884,58 @@ export function App() {
         onToggleSound={() => setIsMuted(soundEffects.toggleMute())}
       />
 
-      {/* 2. MAIN 3-PANEL BODY: Left Sidebar, Center Court, Right Toolbox */}
+      {/* 2. MAIN 3-PANEL BODY: Desktop Sidebars + Center Court Stage + Mobile Drawers */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Sidebar (Phases & Objects) */}
-        <LeftSidebar
-          keyframes={currentPlay.keyframes}
-          activeFrameIndex={activeFrameIndex}
-          onSelectFrame={idx => {
-            setIsPlaying(false);
-            setActiveFrameIndex(idx);
-          }}
-          onAddNextFrame={handleAddNextFrame}
-          onCloneFrame={handleCloneFrame}
-          onAddEmptyFrame={handleAddEmptyFrame}
-          onResetFrame={handleResetPhase}
-          onDeleteFrame={handleDeleteFrame}
-          currentPieces={currentFrame.pieces}
-          currentDrawings={currentFrame.drawings}
-          onDeletePiece={handleDeletePiece}
-          onDeleteDrawing={handleDeleteDrawing}
-        />
+        {/* Desktop Left Sidebar (Phases & Objects) */}
+        <div className="hidden lg:flex w-52 xl:w-56 border-r border-[#262626] h-full flex-col shrink-0 bg-[#0a0a0a]">
+          <LeftSidebar
+            keyframes={currentPlay.keyframes}
+            activeFrameIndex={activeFrameIndex}
+            onSelectFrame={idx => {
+              setIsPlaying(false);
+              setActiveFrameIndex(idx);
+            }}
+            onAddNextFrame={handleAddNextFrame}
+            onCloneFrame={handleCloneFrame}
+            onAddEmptyFrame={handleAddEmptyFrame}
+            onResetFrame={handleResetPhase}
+            onDeleteFrame={handleDeleteFrame}
+            currentPieces={currentFrame.pieces}
+            currentDrawings={currentFrame.drawings}
+            onDeletePiece={handleDeletePiece}
+            onDeleteDrawing={handleDeleteDrawing}
+          />
+        </div>
 
-        {/* Center Court Stage */}
-        <main className="flex-1 relative flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden bg-[#000000]">
+        {/* Center Court Stage - Takes up 100% available viewport on mobile */}
+        <main className="flex-1 relative flex flex-col items-center justify-center p-1 sm:p-2 md:p-3 overflow-hidden bg-[#000000] w-full h-full">
+          {/* Mobile Top Floating Quick-Pills */}
+          <div className="absolute top-2 left-2 right-2 z-30 lg:hidden flex items-center justify-between pointer-events-none">
+            {/* Mobile Phases Trigger */}
+            <button
+              onClick={() => {
+                soundEffects.playClick();
+                setIsMobilePhasesOpen(true);
+              }}
+              className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0c0d10]/90 backdrop-blur-md border border-zinc-700/80 text-zinc-200 text-xs font-black shadow-2xl active:scale-95 transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#c4ced4]" />
+              <span>Phase {activeFrameIndex + 1}/{currentPlay.keyframes.length}</span>
+            </button>
+
+            {/* Mobile Tools Trigger */}
+            <button
+              onClick={() => {
+                soundEffects.playClick();
+                setIsMobileToolboxOpen(true);
+              }}
+              className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 text-zinc-950 text-xs font-black shadow-2xl active:scale-95 transition-all border border-white"
+            >
+              <Wrench className="w-3.5 h-3.5 fill-current text-zinc-950" />
+              <span className="capitalize">{activeTool} {selectedPlayerLabel ? `(#${selectedPlayerLabel})` : ''}</span>
+            </button>
+          </div>
+
           {/* Main Court Canvas Container */}
           <div className="relative w-full h-full flex items-center justify-center">
             <BasketballCourt
@@ -937,7 +972,7 @@ export function App() {
 
           {/* Floating Bottom Animation Controller (when in Animate mode or Playing) */}
           {(currentMode === 'animate' || isPlaying) && (
-            <div className="absolute bottom-4 z-30 bg-[#0a0a0a]/95 backdrop-blur-md border border-[#262626] rounded-2xl px-4 py-2.5 flex items-center gap-3 shadow-2xl animate-slide-up">
+            <div className="absolute bottom-2 sm:bottom-4 z-30 bg-[#0a0a0a]/95 backdrop-blur-md border border-[#262626] rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 shadow-2xl animate-slide-up max-w-[95vw]">
               <button
                 onClick={() => {
                   soundEffects.playClick();
@@ -957,7 +992,7 @@ export function App() {
                   else soundEffects.playClick();
                   setIsPlaying(!isPlaying);
                 }}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-black text-xs shadow-lg transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-xs shadow-lg transition-all ${
                   isPlaying
                     ? 'bg-white text-black'
                     : 'bg-[#c4ced4] text-black shadow-md'
@@ -968,7 +1003,7 @@ export function App() {
               </button>
 
               {/* Progress bar */}
-              <div className="w-36 sm:w-48 h-2 bg-[#141414] rounded-full overflow-hidden border border-[#262626]">
+              <div className="w-20 sm:w-48 h-2 bg-[#141414] rounded-full overflow-hidden border border-[#262626]">
                 <div
                   className="h-full bg-gradient-to-r from-[#c4ced4] to-white transition-all duration-75"
                   style={{ width: `${playbackProgress * 100}%` }}
@@ -992,8 +1027,8 @@ export function App() {
               </button>
 
               {/* Speed selector */}
-              <div className="flex items-center gap-1 bg-[#141414] p-1 rounded-lg border border-[#262626]">
-                {[0.5, 0.75, 1, 1.25, 1.5].map(speed => (
+              <div className="flex items-center gap-0.5 sm:gap-1 bg-[#141414] p-0.5 sm:p-1 rounded-lg border border-[#262626]">
+                {[0.5, 1, 1.5].map(speed => (
                   <button
                     key={speed}
                     onClick={() => {
@@ -1012,20 +1047,117 @@ export function App() {
           )}
         </main>
 
-        {/* Right Sidebar (Toolbox Panel) */}
-        <ActionToolbox
-          activeTool={activeTool}
-          onSelectTool={(tool) => {
-            setActiveTool(tool);
-            if (tool === 'select' || tool === 'eraser') {
-              setSelectedPlayerLabel(null);
-            }
-          }}
-          selectedPlayerLabel={selectedPlayerLabel}
-          onSelectPlayerTemplate={handleSelectPlayerTemplate}
-          onResetFrame={handleClearFrame}
-        />
+        {/* Desktop Right Sidebar (Toolbox Panel) */}
+        <div className="hidden lg:flex w-60 xl:w-64 border-l border-[#262626] h-full flex-col shrink-0 bg-[#0a0a0a]">
+          <ActionToolbox
+            activeTool={activeTool}
+            onSelectTool={(tool) => {
+              setActiveTool(tool);
+              if (tool === 'select' || tool === 'eraser') {
+                setSelectedPlayerLabel(null);
+              }
+            }}
+            selectedPlayerLabel={selectedPlayerLabel}
+            onSelectPlayerTemplate={handleSelectPlayerTemplate}
+            onResetFrame={handleClearFrame}
+          />
+        </div>
       </div>
+
+      {/* MOBILE SLIDE-OVER DRAWER: PHASES & OBJECTS */}
+      {isMobilePhasesOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="w-72 max-w-[85vw] bg-[#0c0d10] h-full shadow-2xl flex flex-col animate-slide-right border-r border-zinc-800">
+            <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-950">
+              <span className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-zinc-300" />
+                <span>Phases & Setup</span>
+              </span>
+              <button
+                onClick={() => {
+                  soundEffects.playClick();
+                  setIsMobilePhasesOpen(false);
+                }}
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <LeftSidebar
+                keyframes={currentPlay.keyframes}
+                activeFrameIndex={activeFrameIndex}
+                onSelectFrame={idx => {
+                  setIsPlaying(false);
+                  setActiveFrameIndex(idx);
+                  setIsMobilePhasesOpen(false);
+                }}
+                onAddNextFrame={() => {
+                  handleAddNextFrame();
+                  setIsMobilePhasesOpen(false);
+                }}
+                onCloneFrame={idx => {
+                  handleCloneFrame(idx);
+                  setIsMobilePhasesOpen(false);
+                }}
+                onAddEmptyFrame={() => {
+                  handleAddEmptyFrame();
+                  setIsMobilePhasesOpen(false);
+                }}
+                onResetFrame={handleResetPhase}
+                onDeleteFrame={handleDeleteFrame}
+                currentPieces={currentFrame.pieces}
+                currentDrawings={currentFrame.drawings}
+                onDeletePiece={handleDeletePiece}
+                onDeleteDrawing={handleDeleteDrawing}
+              />
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setIsMobilePhasesOpen(false)} />
+        </div>
+      )}
+
+      {/* MOBILE SLIDE-OVER DRAWER: TOOLS & PLAYERS */}
+      {isMobileToolboxOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end lg:hidden bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="flex-1" onClick={() => setIsMobileToolboxOpen(false)} />
+          <div className="w-80 max-w-[90vw] bg-[#0c0d10] h-full shadow-2xl flex flex-col animate-slide-left border-l border-zinc-800">
+            <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-950">
+              <span className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
+                <Wrench className="w-4 h-4 text-zinc-300" />
+                <span>Tools & Actions</span>
+              </span>
+              <button
+                onClick={() => {
+                  soundEffects.playClick();
+                  setIsMobileToolboxOpen(false);
+                }}
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <ActionToolbox
+                activeTool={activeTool}
+                onSelectTool={(tool) => {
+                  setActiveTool(tool);
+                  if (tool === 'select' || tool === 'eraser') {
+                    setSelectedPlayerLabel(null);
+                  }
+                  setIsMobileToolboxOpen(false);
+                }}
+                selectedPlayerLabel={selectedPlayerLabel}
+                onSelectPlayerTemplate={(type, label) => {
+                  handleSelectPlayerTemplate(type, label);
+                  setIsMobileToolboxOpen(false);
+                }}
+                onResetFrame={handleClearFrame}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3. MODALS */}
       {/* Pick Court & Template Modal */}

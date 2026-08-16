@@ -44,7 +44,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   const [activeTab, setActiveTab] = React.useState<'phases' | 'objects'>('phases');
 
   return (
-    <aside className="w-48 sm:w-56 bg-[#0a0a0a] border-r border-[#262626] flex flex-col h-full z-30 select-none text-white">
+    <aside className="w-full h-full bg-[#0a0a0a] flex flex-col z-30 select-none text-white">
       {/* 1. TOP TABS: Phases / Objects */}
       <div className="flex items-center border-b border-[#262626] p-2 gap-1 bg-[#121212]">
         <button

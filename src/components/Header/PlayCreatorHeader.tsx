@@ -79,36 +79,37 @@ export const PlayCreatorHeader: React.FC<PlayCreatorHeaderProps> = ({
   };
 
   return (
-    <header className="w-full bg-[#0a0a0a] border-b border-[#262626] px-3 sm:px-4 py-2 flex items-center justify-between gap-2 sm:gap-4 shadow-xl z-40 select-none text-white">
+    <header className="w-full bg-[#0a0a0a] border-b border-[#262626] px-2 sm:px-4 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-4 shadow-xl z-40 select-none text-white shrink-0">
       {/* 1. LEFT: Close & Primary Modes */}
-      <div className="flex items-center gap-1.5 sm:gap-3">
+      <div className="flex items-center gap-1 sm:gap-2.5">
         <button
           onClick={() => {
             soundEffects.playClick();
             onOpenTemplates();
           }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141414] hover:bg-[#262626] border border-[#262626] text-slate-300 hover:text-white text-xs font-bold transition-all"
+          className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-xl bg-[#141414] hover:bg-[#262626] border border-[#262626] text-slate-300 hover:text-white text-xs font-bold transition-all shrink-0"
           title="New Play / Template Picker"
         >
           <X className="w-4 h-4 text-[#c4ced4]" />
-          <span className="hidden sm:inline">Close</span>
+          <span className="hidden md:inline">Close</span>
         </button>
 
         {/* MODE TABS (Draw, Animate, Notes, Output) */}
-        <div className="flex items-center p-1 bg-[#141414] rounded-xl border border-[#262626] text-xs font-bold">
+        <div className="flex items-center p-0.5 sm:p-1 bg-[#141414] rounded-xl border border-[#262626] text-xs font-bold">
           <button
             onClick={() => {
               soundEffects.playClick();
               onChangeMode('draw');
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+            title="Draw Mode"
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg transition-all ${
               currentMode === 'draw'
                 ? 'bg-[#c4ced4] text-black font-black shadow-md'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Pencil className="w-3.5 h-3.5" />
-            <span>Draw</span>
+            <span className="hidden sm:inline">Draw</span>
           </button>
 
           <button
@@ -116,14 +117,15 @@ export const PlayCreatorHeader: React.FC<PlayCreatorHeaderProps> = ({
               soundEffects.playClick();
               onChangeMode('animate');
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+            title="Animate Mode"
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg transition-all ${
               currentMode === 'animate'
                 ? 'bg-[#c4ced4] text-black font-black shadow-md'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <PlayIcon className="w-3.5 h-3.5 fill-current" />
-            <span>Animate</span>
+            <span className="hidden sm:inline">Animate</span>
           </button>
 
           <button
@@ -131,14 +133,15 @@ export const PlayCreatorHeader: React.FC<PlayCreatorHeaderProps> = ({
               soundEffects.playClick();
               onChangeMode('notes');
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+            title="Coaching Notes"
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg transition-all ${
               currentMode === 'notes'
                 ? 'bg-[#c4ced4] text-black font-black shadow-md'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>Notes</span>
+            <span className="hidden sm:inline">Notes</span>
           </button>
 
           <button
@@ -146,14 +149,15 @@ export const PlayCreatorHeader: React.FC<PlayCreatorHeaderProps> = ({
               soundEffects.playClick();
               onChangeMode('output');
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+            title="Output & Export"
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg transition-all ${
               currentMode === 'output'
                 ? 'bg-[#c4ced4] text-black font-black shadow-md'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Share2 className="w-3.5 h-3.5" />
-            <span>Output</span>
+            <span className="hidden sm:inline">Output</span>
           </button>
         </div>
       </div>

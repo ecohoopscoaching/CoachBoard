@@ -117,8 +117,8 @@ export const BasketballCourt: React.FC<BasketballCourtProps> = ({
         // SAN ANTONIO SPURS HARDWOOD PALETTE: Metallic Silver & Black Frame + Vertical Hardwood + Spurs Black Paint + Silver Markings
         return {
           isHardwoodSvg: true,
-          frameBg: 'p-3 sm:p-4 rounded-3xl shadow-[0_16px_50px_rgba(0,0,0,0.7)] bg-gradient-to-b from-[#1c1c1c] via-[#0f0f0f] to-[#000000] border-2 border-[#c4ced4]/50',
-          courtBorder: 'border-2 border-[#000000]',
+          frameBg: 'p-1 sm:p-2 md:p-3.5 rounded-xl sm:rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.8)] bg-gradient-to-b from-[#1c1c1c] via-[#0f0f0f] to-[#000000] border border-[#c4ced4]/40 sm:border-2',
+          courtBorder: 'border border-[#000000] sm:border-2',
           courtBg: 'bg-[#e8cfb0]',
           lineColor: '#ffffff',
           lineOpacity: 1.0,
@@ -137,12 +137,12 @@ export const BasketballCourt: React.FC<BasketballCourtProps> = ({
   const getAspectRatioClass = () => {
     switch (courtType) {
       case 'full-horizontal':
-        return 'aspect-[94/50] max-w-5xl max-h-[82vh]';
+        return 'aspect-[94/50] w-full max-h-[88dvh] sm:max-h-[82vh] max-w-5xl';
       case 'full-vertical':
-        return 'aspect-[50/94] max-w-[460px] max-h-[85vh]';
+        return 'aspect-[50/94] w-full max-h-[92dvh] sm:max-h-[85vh] max-w-[480px]';
       case 'half':
       default:
-        return 'aspect-[50/47] max-w-[560px] max-h-[82vh]';
+        return 'aspect-[50/47] w-full max-h-[92dvh] sm:max-h-[84vh] max-w-[640px]';
     }
   };
 
@@ -163,7 +163,7 @@ export const BasketballCourt: React.FC<BasketballCourtProps> = ({
       id="basketball-court-canvas"
       className={`relative w-full ${getAspectRatioClass()} select-none overflow-hidden transition-all duration-300 mx-auto ${theme.frameBg}`}
     >
-      <div className={`relative w-full h-full rounded-2xl overflow-hidden ${theme.courtBg} ${theme.courtBorder}`}>
+      <div className={`relative w-full h-full rounded-lg sm:rounded-2xl overflow-hidden ${theme.courtBg} ${theme.courtBorder}`}>
         <svg
           className="absolute inset-0 w-full h-full pointer-events-none"
           viewBox={viewBox}

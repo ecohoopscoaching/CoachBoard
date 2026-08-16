@@ -47,7 +47,7 @@ export const ActionToolbox: React.FC<ActionToolboxProps> = ({
   };
 
   return (
-    <aside className="w-56 sm:w-64 bg-[#0a0a0a] border-l border-[#262626] flex flex-col h-full z-30 select-none overflow-y-auto p-3 sm:p-4 gap-4 text-white">
+    <aside className="w-full h-full bg-[#0a0a0a] flex flex-col z-30 select-none overflow-y-auto p-3 sm:p-4 gap-4 text-white">
       {/* 1. SELECT / MOVE, ERASER, & RESET TOOLS */}
       <div className="flex items-center gap-1.5">
         <button

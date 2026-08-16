@@ -23,7 +23,7 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
 
   const isDrawingTool = ['pass', 'dribble', 'cut', 'screen', 'shot', 'handoff'].includes(activeTool);
 
-  const getRelativePoint = (e: React.MouseEvent<SVGSVGElement>): Point | null => {
+  const getRelativePoint = (e: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>): Point | null => {
     if (!svgRef.current) return null;
     const rect = svgRef.current.getBoundingClientRect();
     return {
@@ -32,8 +32,13 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
     };
   };
 
-  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!isDrawingTool) return;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // fallback
+    }
     const pt = getRelativePoint(e);
     if (!pt) return;
 
@@ -44,7 +49,7 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
     setCurrentPathPoints([startPt]);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (currentPathPoints.length === 0) return;
     const pt = getRelativePoint(e);
     if (!pt) return;
@@ -58,7 +63,7 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
     }
   };
 
-  const handleMouseUp = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     if (currentPathPoints.length === 0) return;
     const rawEndPt = getRelativePoint(e) || currentPathPoints[currentPathPoints.length - 1];
 
@@ -141,9 +146,11 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
   return (
     <svg
       ref={svgRef}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      style={{ touchAction: 'none' }}
       className={`absolute inset-0 w-full h-full select-none ${
         isDrawingTool ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'
       }`}
