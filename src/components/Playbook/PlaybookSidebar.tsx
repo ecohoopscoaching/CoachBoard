@@ -19,6 +19,9 @@ import {
   ArrowDownToLine,
   Dumbbell,
   Sparkles,
+  Download,
+  Save,
+  Check,
 } from 'lucide-react';
 import { soundEffects } from '../../services/soundEffects';
 
@@ -26,9 +29,11 @@ interface PlaybookSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   savedPlays: Play[];
+  currentPlay: Play;
+  onSaveCurrentPlay: () => void;
   onLoadPlay: (play: Play) => void;
   onDeletePlay: (id: string) => void;
-  onImportJSON: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onImportPlays: (importedPlays: Play[]) => void;
 }
 
 interface CategoryOption {
@@ -53,19 +58,27 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
   isOpen,
   onClose,
   savedPlays,
+  currentPlay,
+  onSaveCurrentPlay,
   onLoadPlay,
   onDeletePlay,
-  onImportJSON,
+  onImportPlays,
 }) => {
   const [activeTab, setActiveTab] = React.useState<'presets' | 'saved'>(
     PRESET_PLAYS.length > 0 ? 'presets' : 'saved'
   );
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState<string>('all');
+  const [saveToast, setSaveToast] = React.useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const currentPlayList = activeTab === 'presets' ? PRESET_PLAYS : savedPlays;
+
+  const showFeedback = (msg: string) => {
+    setSaveToast(msg);
+    setTimeout(() => setSaveToast(null), 3000);
+  };
 
   const getCategoryCount = (catId: string) => {
     if (catId === 'all') return currentPlayList.length;
@@ -83,6 +96,81 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
 
     return matchesSearch && matchesCategory;
   });
+
+  // Export full playbook backup (.json)
+  const handleExportPlaybook = () => {
+    if (savedPlays.length === 0) {
+      showFeedback('No plays to export! Save a play first.');
+      return;
+    }
+    const dataStr = JSON.stringify(savedPlays, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `CoachBoard_Playbook_${dateStr}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    soundEffects.playWhistle();
+    showFeedback(`Exported ${savedPlays.length} plays to JSON file!`);
+  };
+
+  // Export a single play (.json)
+  const handleExportSinglePlay = (play: Play, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const dataStr = JSON.stringify(play, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeTitle = play.title.replace(/[^a-zA-Z0-9_-]/g, '_') || 'Play';
+    link.href = url;
+    link.download = `${safeTitle}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    soundEffects.playClick();
+    showFeedback(`Downloaded "${play.title}" JSON!`);
+  };
+
+  // Import JSON file (handles both single play and full playbook array)
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = event => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (Array.isArray(parsed)) {
+          // Array of plays
+          const validPlays = parsed.filter(p => p && p.id && Array.isArray(p.keyframes));
+          if (validPlays.length > 0) {
+            onImportPlays(validPlays);
+            soundEffects.playWhistle();
+            showFeedback(`Imported ${validPlays.length} plays into playbook!`);
+          } else {
+            showFeedback('No valid plays found in JSON array.');
+          }
+        } else if (parsed && parsed.id && Array.isArray(parsed.keyframes)) {
+          // Single play
+          onImportPlays([parsed]);
+          soundEffects.playWhistle();
+          showFeedback(`Imported "${parsed.title || 'Play'}"!`);
+        } else {
+          showFeedback('Invalid CoachBoard play format.');
+        }
+      } catch {
+        showFeedback('Failed to parse JSON file.');
+      }
+    };
+    reader.readAsText(file);
+    // Reset file input value so same file can be uploaded again if needed
+    e.target.value = '';
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/85 backdrop-blur-md animate-fade-in">
@@ -113,6 +201,36 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Save Current Board Banner */}
+        <div className="p-3 bg-zinc-900/90 border-b border-zinc-800/80 flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+              Active Board
+            </span>
+            <p className="text-xs font-black text-zinc-100 truncate">
+              {currentPlay.title || 'Untitled Play'}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              onSaveCurrentPlay();
+              showFeedback(`Saved "${currentPlay.title}" to Playbook!`);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-black text-xs shadow-md border border-white transition-all shrink-0 active:scale-95"
+          >
+            <Save className="w-3.5 h-3.5 fill-current" />
+            <span>Save to Playbook</span>
+          </button>
+        </div>
+
+        {/* Notification Toast */}
+        {saveToast && (
+          <div className="mx-4 mt-3 p-2.5 rounded-xl bg-zinc-800 border border-zinc-600 text-zinc-100 text-xs font-bold flex items-center gap-2 shadow-lg animate-fade-in">
+            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="truncate">{saveToast}</span>
+          </div>
+        )}
 
         {/* Tab switch only if presets exist */}
         {PRESET_PLAYS.length > 0 && (
@@ -222,9 +340,9 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
               <h4 className="text-xs font-black uppercase text-zinc-300 tracking-wider mb-1">
                 No Plays Found
               </h4>
-              <p className="text-[11px] text-zinc-500 max-w-xs leading-relaxed">
+              <p className="text-[11px] text-zinc-500 max-w-xs leading-relaxed mb-3">
                 {selectedCategory === 'all'
-                  ? 'Your playbook is currently empty. Design and save custom plays on the board to build your collection.'
+                  ? 'Your playbook is currently empty. Design and save custom plays on the board to build your library.'
                   : `No plays currently saved under the "${CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory}" category.`}
               </p>
             </div>
@@ -244,18 +362,28 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
                     </h3>
                   </div>
 
-                  {activeTab === 'saved' && (
+                  <div className="flex items-center gap-1">
                     <button
-                      onClick={() => {
-                        soundEffects.playClick();
-                        onDeletePlay(play.id);
-                      }}
-                      className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
-                      title="Delete Play"
+                      onClick={e => handleExportSinglePlay(play, e)}
+                      className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                      title="Download Play JSON"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Download className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                    {activeTab === 'saved' && (
+                      <button
+                        onClick={() => {
+                          soundEffects.playClick();
+                          onDeletePlay(play.id);
+                          showFeedback(`Deleted "${play.title}"`);
+                        }}
+                        className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                        title="Delete Play"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {play.description && (
@@ -296,12 +424,22 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
           )}
         </div>
 
-        {/* Footer Import JSON Button */}
-        <div className="p-4 border-t border-zinc-800/80 bg-zinc-950">
-          <label className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-dashed border-zinc-700/80 hover:border-zinc-400 text-zinc-400 hover:text-zinc-100 font-bold text-xs cursor-pointer transition-all bg-zinc-900/40 hover:bg-zinc-900">
+        {/* Footer Backup & Restore Actions */}
+        <div className="p-3.5 border-t border-zinc-800/80 bg-zinc-950 flex items-center gap-2.5">
+          <button
+            onClick={handleExportPlaybook}
+            disabled={savedPlays.length === 0}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 disabled:pointer-events-none text-zinc-200 hover:text-white border border-zinc-800 hover:border-zinc-600 font-bold text-xs transition-all shadow-sm"
+            title="Download full playbook backup JSON"
+          >
+            <Download className="w-3.5 h-3.5 text-zinc-300" />
+            <span>Export Playbook ({savedPlays.length})</span>
+          </button>
+
+          <label className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-800 hover:border-zinc-600 font-bold text-xs cursor-pointer transition-all shadow-sm">
             <Upload className="w-3.5 h-3.5 text-zinc-300" />
-            <span>Import Playbook JSON</span>
-            <input type="file" accept=".json" onChange={onImportJSON} className="hidden" />
+            <span>Import JSON</span>
+            <input type="file" accept=".json" onChange={handleFileInput} className="hidden" />
           </label>
         </div>
       </div>

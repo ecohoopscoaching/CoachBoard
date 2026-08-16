@@ -788,13 +788,18 @@ export function App() {
     const existingIndex = savedPlays.findIndex(p => p.id === currentPlay.id);
     if (existingIndex >= 0) {
       const updated = [...savedPlays];
-      updated[existingIndex] = currentPlay;
+      updated[existingIndex] = { ...currentPlay, updatedAt: Date.now() };
       setSavedPlays(updated);
     } else {
-      setSavedPlays([currentPlay, ...savedPlays]);
+      setSavedPlays([{ ...currentPlay, updatedAt: Date.now() }, ...savedPlays]);
     }
     soundEffects.playWhistle();
-    alert(`Play "${currentPlay.title}" saved to your playbook library!`);
+    confetti({
+      particleCount: 40,
+      spread: 60,
+      origin: { y: 0.8 },
+      colors: ['#c4ced4', '#ffffff', '#71717a'],
+    });
   };
 
   const handleSelectPlayerTemplate = (
@@ -1060,29 +1065,30 @@ export function App() {
         isOpen={isPlaybookOpen}
         onClose={() => setIsPlaybookOpen(false)}
         savedPlays={savedPlays}
+        currentPlay={currentPlay}
+        onSaveCurrentPlay={handleSavePlay}
         onLoadPlay={play => {
           pushState(play);
           setActiveFrameIndex(0);
           setIsPlaying(false);
         }}
         onDeletePlay={id => setSavedPlays(savedPlays.filter(p => p.id !== id))}
-        onImportJSON={e => {
-          const fileReader = new FileReader();
-          if (e.target.files && e.target.files[0]) {
-            fileReader.readAsText(e.target.files[0], 'UTF-8');
-            fileReader.onload = event => {
-              try {
-                const importedPlay = JSON.parse(event.target?.result as string);
-                if (importedPlay && importedPlay.keyframes) {
-                  pushState(importedPlay);
-                  setActiveFrameIndex(0);
-                  soundEffects.playWhistle();
-                }
-              } catch {
-                alert('Invalid play JSON format!');
-              }
-            };
+        onImportPlays={importedPlays => {
+          const newMap = new Map<string, Play>();
+          savedPlays.forEach(p => newMap.set(p.id, p));
+          importedPlays.forEach(p => newMap.set(p.id, p));
+          const merged = Array.from(newMap.values());
+          setSavedPlays(merged);
+          if (importedPlays[0]) {
+            pushState(importedPlays[0]);
+            setActiveFrameIndex(0);
           }
+          confetti({
+            particleCount: 50,
+            spread: 70,
+            origin: { y: 0.8 },
+            colors: ['#c4ced4', '#ffffff', '#71717a'],
+          });
         }}
       />
     </div>
