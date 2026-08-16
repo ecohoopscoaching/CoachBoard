@@ -19,86 +19,34 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
   onDeleteDrawing,
 }) => {
   const [currentPathPoints, setCurrentPathPoints] = React.useState<Point[]>([]);
+  const [tapStartPoint, setTapStartPoint] = React.useState<Point | null>(null);
   const svgRef = React.useRef<SVGSVGElement>(null);
+  const isDrawingRef = React.useRef<boolean>(false);
   const lastPointRef = React.useRef<Point | null>(null);
 
   const isDrawingTool = ['pass', 'dribble', 'cut', 'screen', 'shot', 'handoff'].includes(activeTool);
 
-  const getRelativePoint = (
-    e: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement> | PointerEvent | MouseEvent
-  ): Point | null => {
+  // Clear tap start point when active tool changes
+  React.useEffect(() => {
+    setTapStartPoint(null);
+    setCurrentPathPoints([]);
+    isDrawingRef.current = false;
+  }, [activeTool]);
+
+  const getRelativePoint = (clientX: number, clientY: number): Point | null => {
     if (!svgRef.current) return null;
-    // Guard against 0,0 release artifacts or empty events
-    if (!e || (e.clientX === 0 && e.clientY === 0 && e.pageX === 0 && e.pageY === 0)) {
-      return null;
-    }
     const rect = svgRef.current.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return null;
-
-    const clientX = e.clientX ?? (e as any).pageX;
-    const clientY = e.clientY ?? (e as any).pageY;
-    if (typeof clientX !== 'number' || typeof clientY !== 'number') return null;
 
     const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
     const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
     return { x, y };
   };
 
-  const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (!isDrawingTool) return;
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // fallback
-    }
-    const pt = getRelativePoint(e);
-    if (!pt) return;
-
-    // Snap to nearby piece if within 8%
-    const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
-    const startPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
-
-    lastPointRef.current = startPt;
-    setCurrentPathPoints([startPt]);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (currentPathPoints.length === 0) return;
-    const pt = getRelativePoint(e);
-    if (!pt) return;
-
-    lastPointRef.current = pt;
-    const lastPt = currentPathPoints[currentPathPoints.length - 1];
-    const dist = Math.hypot(pt.x - lastPt.x, pt.y - lastPt.y);
-
-    // Sample points for smooth tracking
-    if (dist > 1.5) {
-      setCurrentPathPoints(prev => [...prev, pt]);
-    }
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (currentPathPoints.length === 0) return;
-    try {
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-    } catch {
-      // fallback
-    }
-
-    const eventPt = getRelativePoint(e);
-    const rawEndPt = eventPt || lastPointRef.current || currentPathPoints[currentPathPoints.length - 1];
-    if (!rawEndPt) {
-      setCurrentPathPoints([]);
-      lastPointRef.current = null;
-      return;
-    }
-
-    const startPt = currentPathPoints[0];
+  const commitDrawing = (startPt: Point, rawEndPt: Point, pts: Point[]) => {
     const nearbyStart = pieces.find(p => Math.hypot(p.x - startPt.x, p.y - startPt.y) < 8);
 
-    // Snap end point to nearby TARGET piece (excluding starting passer)
+    // Snap to target receiver if within 8% (excluding the starting player)
     const nearbyEnd = pieces.find(
       p => p.id !== nearbyStart?.id && Math.hypot(p.x - rawEndPt.x, p.y - rawEndPt.y) < 8
     );
@@ -108,17 +56,17 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
 
     let finalPoints: Point[] = [];
     if (activeTool === 'pass' || activeTool === 'handoff') {
-      // Crisp straight line for passes and handoffs
+      // Direct clean straight line for passes and handoffs
       finalPoints = [startPt, endPt];
     } else {
-      finalPoints = [...currentPathPoints];
+      finalPoints = [...pts];
       if (Math.hypot(endPt.x - finalPoints[finalPoints.length - 1].x, endPt.y - finalPoints[finalPoints.length - 1].y) > 0.5) {
         finalPoints.push(endPt);
       }
     }
 
     const totalDist = Math.hypot(endPt.x - startPt.x, endPt.y - startPt.y);
-    if (totalDist >= 2.5 && finalPoints.length >= 2) {
+    if (totalDist >= 2.0 && finalPoints.length >= 2) {
       const colorMap: Record<string, string> = {
         pass: '#0a0a0a',
         cut: '#0a0a0a',
@@ -138,8 +86,163 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
       };
 
       onAddDrawing(newDrawing);
+      setTapStartPoint(null);
+    }
+  };
+
+  // 1. TOUCH EVENT HANDLERS (Mobile Safari & Android Touch)
+  const handleTouchStart = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (!isDrawingTool || e.touches.length === 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const touch = e.touches[0];
+    const pt = getRelativePoint(touch.clientX, touch.clientY);
+    if (!pt) return;
+
+    // Check if we already had a tapped start point (2-tap mode)
+    if (tapStartPoint) {
+      const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
+      const endPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
+      commitDrawing(tapStartPoint, endPt, [tapStartPoint, endPt]);
+      setTapStartPoint(null);
+      setCurrentPathPoints([]);
+      isDrawingRef.current = false;
+      return;
     }
 
+    // Snap to nearby piece if within 8%
+    const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
+    const startPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
+
+    isDrawingRef.current = true;
+    lastPointRef.current = startPt;
+    setCurrentPathPoints([startPt]);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (!isDrawingRef.current || e.touches.length === 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const touch = e.touches[0];
+    const pt = getRelativePoint(touch.clientX, touch.clientY);
+    if (!pt) return;
+
+    lastPointRef.current = pt;
+    setCurrentPathPoints(prev => {
+      if (prev.length === 0) return [pt];
+      const lastPt = prev[prev.length - 1];
+      if (Math.hypot(pt.x - lastPt.x, pt.y - lastPt.y) > 1.2) {
+        return [...prev, pt];
+      }
+      return prev;
+    });
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (!isDrawingRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    isDrawingRef.current = false;
+
+    let endPt: Point | null = null;
+    if (e.changedTouches.length > 0) {
+      const touch = e.changedTouches[0];
+      endPt = getRelativePoint(touch.clientX, touch.clientY);
+    }
+    const rawEndPt = endPt || lastPointRef.current;
+
+    if (!rawEndPt || currentPathPoints.length === 0) {
+      setCurrentPathPoints([]);
+      lastPointRef.current = null;
+      return;
+    }
+
+    const startPt = currentPathPoints[0];
+    const dist = Math.hypot(rawEndPt.x - startPt.x, rawEndPt.y - startPt.y);
+
+    if (dist < 2.0) {
+      // Tap without dragging: set as tap start point for 2-tap mode
+      setTapStartPoint(startPt);
+      setCurrentPathPoints([]);
+      lastPointRef.current = null;
+      return;
+    }
+
+    commitDrawing(startPt, rawEndPt, currentPathPoints);
+    setCurrentPathPoints([]);
+    lastPointRef.current = null;
+  };
+
+  // 2. POINTER EVENT HANDLERS (Desktop Mouse / Stylus)
+  const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    // If touch already handled, ignore synthetic pointer event
+    if (e.pointerType === 'touch') return;
+    if (!isDrawingTool) return;
+
+    const pt = getRelativePoint(e.clientX, e.clientY);
+    if (!pt) return;
+
+    if (tapStartPoint) {
+      const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
+      const endPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
+      commitDrawing(tapStartPoint, endPt, [tapStartPoint, endPt]);
+      setTapStartPoint(null);
+      setCurrentPathPoints([]);
+      isDrawingRef.current = false;
+      return;
+    }
+
+    const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
+    const startPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
+
+    isDrawingRef.current = true;
+    lastPointRef.current = startPt;
+    setCurrentPathPoints([startPt]);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === 'touch') return;
+    if (!isDrawingRef.current || currentPathPoints.length === 0) return;
+
+    const pt = getRelativePoint(e.clientX, e.clientY);
+    if (!pt) return;
+
+    lastPointRef.current = pt;
+    setCurrentPathPoints(prev => {
+      if (prev.length === 0) return [pt];
+      const lastPt = prev[prev.length - 1];
+      if (Math.hypot(pt.x - lastPt.x, pt.y - lastPt.y) > 1.2) {
+        return [...prev, pt];
+      }
+      return prev;
+    });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.pointerType === 'touch') return;
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+
+    const rawEndPt = getRelativePoint(e.clientX, e.clientY) || lastPointRef.current;
+    if (!rawEndPt || currentPathPoints.length === 0) {
+      setCurrentPathPoints([]);
+      lastPointRef.current = null;
+      return;
+    }
+
+    const startPt = currentPathPoints[0];
+    const dist = Math.hypot(rawEndPt.x - startPt.x, rawEndPt.y - startPt.y);
+
+    if (dist < 2.0) {
+      setTapStartPoint(startPt);
+      setCurrentPathPoints([]);
+      lastPointRef.current = null;
+      return;
+    }
+
+    commitDrawing(startPt, rawEndPt, currentPathPoints);
     setCurrentPathPoints([]);
     lastPointRef.current = null;
   };
@@ -181,12 +284,16 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
   return (
     <svg
       ref={svgRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       style={{ touchAction: 'none' }}
-      className={`absolute inset-0 w-full h-full select-none ${
+      className={`absolute inset-0 w-full h-full select-none z-20 ${
         isDrawingTool ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'
       }`}
       viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
@@ -345,6 +452,14 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
           markerEnd={activeTool === 'shot' ? 'url(#arrow-shot)' : 'url(#arrow-tactical)'}
           opacity="0.85"
         />
+      )}
+
+      {/* 2-TAP ORIGIN INDICATOR (Awaiting Receiver Tap) */}
+      {tapStartPoint && (
+        <g transform={`translate(${toSvgX(tapStartPoint.x)}, ${toSvgY(tapStartPoint.y)})`}>
+          <circle r="22" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeDasharray="4,4" className="animate-spin" opacity="0.9" />
+          <circle r="18" fill="#ffffff" fillOpacity="0.25" stroke="#ffffff" strokeWidth="2" />
+        </g>
       )}
     </svg>
   );
