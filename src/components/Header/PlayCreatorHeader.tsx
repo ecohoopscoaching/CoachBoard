@@ -365,6 +365,19 @@ export const PlayCreatorHeader: React.FC<PlayCreatorHeaderProps> = ({
           )}
         </div>
 
+        {/* Dedicated Prominent Tactical Playbook Button */}
+        <button
+          onClick={() => {
+            soundEffects.playClick();
+            onOpenPlaybook();
+          }}
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-100 hover:text-white border border-zinc-700/90 text-xs font-black transition-all shadow-md active:scale-95 group shrink-0"
+          title="Open Tactical Playbook"
+        >
+          <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#c4ced4] group-hover:scale-110 transition-transform" />
+          <span>Playbook</span>
+        </button>
+
         {/* Save Play Button */}
         <button
           onClick={() => {

@@ -75,8 +75,10 @@ export function App() {
   const [isLooping, setIsLooping] = React.useState(true);
   const [isMuted, setIsMuted] = React.useState(false);
 
-  // Modals
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = React.useState(false);
+  // Modals (Landing page opens template modal by default)
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = React.useState<boolean>(() => {
+    return typeof window !== 'undefined' && !window.location.hash.startsWith('#play=');
+  });
   const [isPlaybookOpen, setIsPlaybookOpen] = React.useState(false);
   const [isNotesModalOpen, setIsNotesModalOpen] = React.useState(false);
   const [isOutputModalOpen, setIsOutputModalOpen] = React.useState(false);
@@ -1168,6 +1170,8 @@ export function App() {
         isOpen={isTemplateModalOpen}
         onClose={() => setIsTemplateModalOpen(false)}
         onSelectSetup={handleSelectSetupFromModal}
+        onOpenPlaybook={() => setIsPlaybookOpen(true)}
+        savedPlaysCount={savedPlays.length}
       />
 
       {/* Play Details & Coaching Notes Modal */}
