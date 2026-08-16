@@ -9,7 +9,7 @@ interface CourtThumbnailProps {
   className?: string;
 }
 
-export const CourtThumbnail: React.FC<CourtThumbnailProps> = ({
+const CourtThumbnailComponent: React.FC<CourtThumbnailProps> = ({
   pieces = [],
   ball,
   drawings = [],
@@ -314,3 +314,5 @@ export const CourtThumbnail: React.FC<CourtThumbnailProps> = ({
     </div>
   );
 };
+
+export const CourtThumbnail = React.memo(CourtThumbnailComponent);
