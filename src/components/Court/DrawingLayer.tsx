@@ -20,16 +20,28 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
 }) => {
   const [currentPathPoints, setCurrentPathPoints] = React.useState<Point[]>([]);
   const svgRef = React.useRef<SVGSVGElement>(null);
+  const lastPointRef = React.useRef<Point | null>(null);
 
   const isDrawingTool = ['pass', 'dribble', 'cut', 'screen', 'shot', 'handoff'].includes(activeTool);
 
-  const getRelativePoint = (e: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>): Point | null => {
+  const getRelativePoint = (
+    e: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement> | PointerEvent | MouseEvent
+  ): Point | null => {
     if (!svgRef.current) return null;
+    // Guard against 0,0 release artifacts or empty events
+    if (!e || (e.clientX === 0 && e.clientY === 0 && e.pageX === 0 && e.pageY === 0)) {
+      return null;
+    }
     const rect = svgRef.current.getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)),
-      y: Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)),
-    };
+    if (rect.width === 0 || rect.height === 0) return null;
+
+    const clientX = e.clientX ?? (e as any).pageX;
+    const clientY = e.clientY ?? (e as any).pageY;
+    if (typeof clientX !== 'number' || typeof clientY !== 'number') return null;
+
+    const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+    return { x, y };
   };
 
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -46,6 +58,7 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
     const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
     const startPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
 
+    lastPointRef.current = startPt;
     setCurrentPathPoints([startPt]);
   };
 
@@ -54,37 +67,58 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
     const pt = getRelativePoint(e);
     if (!pt) return;
 
+    lastPointRef.current = pt;
     const lastPt = currentPathPoints[currentPathPoints.length - 1];
     const dist = Math.hypot(pt.x - lastPt.x, pt.y - lastPt.y);
 
-    // Sample points every ~2 units to capture smooth curves
-    if (dist > 2.0) {
-      setCurrentPathPoints([...currentPathPoints, pt]);
+    // Sample points for smooth tracking
+    if (dist > 1.5) {
+      setCurrentPathPoints(prev => [...prev, pt]);
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     if (currentPathPoints.length === 0) return;
-    const rawEndPt = getRelativePoint(e) || currentPathPoints[currentPathPoints.length - 1];
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {
+      // fallback
+    }
 
-    // Snap end point to nearby piece if pass or handoff
-    const nearbyEnd = pieces.find(p => Math.hypot(p.x - rawEndPt.x, p.y - rawEndPt.y) < 8);
+    const eventPt = getRelativePoint(e);
+    const rawEndPt = eventPt || lastPointRef.current || currentPathPoints[currentPathPoints.length - 1];
+    if (!rawEndPt) {
+      setCurrentPathPoints([]);
+      lastPointRef.current = null;
+      return;
+    }
+
+    const startPt = currentPathPoints[0];
+    const nearbyStart = pieces.find(p => Math.hypot(p.x - startPt.x, p.y - startPt.y) < 8);
+
+    // Snap end point to nearby TARGET piece (excluding starting passer)
+    const nearbyEnd = pieces.find(
+      p => p.id !== nearbyStart?.id && Math.hypot(p.x - rawEndPt.x, p.y - rawEndPt.y) < 8
+    );
     const endPt = (nearbyEnd && (activeTool === 'pass' || activeTool === 'handoff'))
       ? { x: nearbyEnd.x, y: nearbyEnd.y }
       : rawEndPt;
 
-    const finalPoints = [...currentPathPoints];
-    if (Math.hypot(endPt.x - finalPoints[finalPoints.length - 1].x, endPt.y - finalPoints[finalPoints.length - 1].y) > 0.5) {
-      finalPoints.push(endPt);
+    let finalPoints: Point[] = [];
+    if (activeTool === 'pass' || activeTool === 'handoff') {
+      // Crisp straight line for passes and handoffs
+      finalPoints = [startPt, endPt];
+    } else {
+      finalPoints = [...currentPathPoints];
+      if (Math.hypot(endPt.x - finalPoints[finalPoints.length - 1].x, endPt.y - finalPoints[finalPoints.length - 1].y) > 0.5) {
+        finalPoints.push(endPt);
+      }
     }
 
-    if (finalPoints.length >= 2) {
-      const startPt = finalPoints[0];
-      const finishPt = finalPoints[finalPoints.length - 1];
-
-      const nearbyStart = pieces.find(p => Math.hypot(p.x - startPt.x, p.y - startPt.y) < 8);
-      const targetEnd = pieces.find(p => Math.hypot(p.x - finishPt.x, p.y - finishPt.y) < 8);
-
+    const totalDist = Math.hypot(endPt.x - startPt.x, endPt.y - startPt.y);
+    if (totalDist >= 2.5 && finalPoints.length >= 2) {
       const colorMap: Record<string, string> = {
         pass: '#0a0a0a',
         cut: '#0a0a0a',
@@ -99,7 +133,7 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
         type: activeTool as DrawingElement['type'],
         points: finalPoints,
         fromPieceId: nearbyStart?.id,
-        toPieceId: targetEnd?.id,
+        toPieceId: nearbyEnd?.id,
         color: colorMap[activeTool] || '#0a0a0a',
       };
 
@@ -107,6 +141,7 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
     }
 
     setCurrentPathPoints([]);
+    lastPointRef.current = null;
   };
 
   const viewBoxWidth = courtType === 'full-vertical' ? 500 : courtType === 'full-horizontal' ? 940 : 500;
@@ -298,7 +333,11 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
       {/* LIVE INTERACTIVE DRAWING PREVIEW WHILE DRAGGING */}
       {currentPathPoints.length >= 2 && (
         <path
-          d={buildSmoothPath(currentPathPoints)}
+          d={
+            activeTool === 'pass' || activeTool === 'handoff'
+              ? `M ${toSvgX(currentPathPoints[0].x)},${toSvgY(currentPathPoints[0].y)} L ${toSvgX(currentPathPoints[currentPathPoints.length - 1].x)},${toSvgY(currentPathPoints[currentPathPoints.length - 1].y)}`
+              : buildSmoothPath(currentPathPoints)
+          }
           fill="none"
           stroke={activeTool === 'shot' ? '#ea580c' : '#ffffff'}
           strokeWidth="4"

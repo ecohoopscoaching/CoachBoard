@@ -35,7 +35,10 @@ export const PieceLayer: React.FC<PieceLayerProps> = ({
     return { x, y };
   };
 
+  const isDrawingTool = ['pass', 'dribble', 'cut', 'screen', 'shot', 'handoff'].includes(activeTool);
+
   const handlePointerDown = (id: string, e: React.PointerEvent) => {
+    if (isDrawingTool) return;
     e.stopPropagation();
     e.preventDefault();
     if (activeTool === 'eraser') {
@@ -99,7 +102,11 @@ export const PieceLayer: React.FC<PieceLayerProps> = ({
               transition: 'none',
               willChange: 'left, top, transform',
             }}
-            className="absolute pointer-events-auto cursor-grab active:cursor-grabbing group touch-none select-none z-10"
+            className={`absolute ${
+              isDrawingTool
+                ? 'pointer-events-none'
+                : 'pointer-events-auto cursor-grab active:cursor-grabbing'
+            } group touch-none select-none z-10`}
           >
             {/* OFFENSE TOKENS (Solid White Circle Badge with Bold Black Number) */}
             {isOffense && (
