@@ -90,90 +90,107 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
     }
   };
 
-  // 1. TOUCH EVENT HANDLERS (Mobile Safari & Android Touch)
-  const handleTouchStart = (e: React.TouchEvent<SVGSVGElement>) => {
-    if (!isDrawingTool || e.touches.length === 0) return;
-    e.preventDefault();
-    e.stopPropagation();
+  // NATIVE TOUCH LISTENERS WITH PASSIVE: FALSE (Guarantees iOS/Android never scroll or rubber-band during drawing)
+  React.useEffect(() => {
+    const svgEl = svgRef.current;
+    if (!svgEl) return;
 
-    const touch = e.touches[0];
-    const pt = getRelativePoint(touch.clientX, touch.clientY);
-    if (!pt) return;
+    const onNativeTouchStart = (e: TouchEvent) => {
+      if (!isDrawingTool || e.touches.length === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
 
-    // Check if we already had a tapped start point (2-tap mode)
-    if (tapStartPoint) {
-      const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
-      const endPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
-      commitDrawing(tapStartPoint, endPt, [tapStartPoint, endPt]);
-      setTapStartPoint(null);
-      setCurrentPathPoints([]);
-      isDrawingRef.current = false;
-      return;
-    }
+      const touch = e.touches[0];
+      const pt = getRelativePoint(touch.clientX, touch.clientY);
+      if (!pt) return;
 
-    // Snap to nearby piece if within 8%
-    const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
-    const startPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
-
-    isDrawingRef.current = true;
-    lastPointRef.current = startPt;
-    setCurrentPathPoints([startPt]);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
-    if (!isDrawingRef.current || e.touches.length === 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    const touch = e.touches[0];
-    const pt = getRelativePoint(touch.clientX, touch.clientY);
-    if (!pt) return;
-
-    lastPointRef.current = pt;
-    setCurrentPathPoints(prev => {
-      if (prev.length === 0) return [pt];
-      const lastPt = prev[prev.length - 1];
-      if (Math.hypot(pt.x - lastPt.x, pt.y - lastPt.y) > 1.2) {
-        return [...prev, pt];
+      // Check if we already had a tapped start point (2-tap mode)
+      if (tapStartPoint) {
+        const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
+        const endPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
+        commitDrawing(tapStartPoint, endPt, [tapStartPoint, endPt]);
+        setTapStartPoint(null);
+        setCurrentPathPoints([]);
+        isDrawingRef.current = false;
+        return;
       }
-      return prev;
-    });
-  };
 
-  const handleTouchEnd = (e: React.TouchEvent<SVGSVGElement>) => {
-    if (!isDrawingRef.current) return;
-    e.preventDefault();
-    e.stopPropagation();
-    isDrawingRef.current = false;
+      // Snap to nearby piece if within 8%
+      const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
+      const startPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
 
-    let endPt: Point | null = null;
-    if (e.changedTouches.length > 0) {
-      const touch = e.changedTouches[0];
-      endPt = getRelativePoint(touch.clientX, touch.clientY);
-    }
-    const rawEndPt = endPt || lastPointRef.current;
+      isDrawingRef.current = true;
+      lastPointRef.current = startPt;
+      setCurrentPathPoints([startPt]);
+    };
 
-    if (!rawEndPt || currentPathPoints.length === 0) {
+    const onNativeTouchMove = (e: TouchEvent) => {
+      if (!isDrawingRef.current || e.touches.length === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const touch = e.touches[0];
+      const pt = getRelativePoint(touch.clientX, touch.clientY);
+      if (!pt) return;
+
+      lastPointRef.current = pt;
+      setCurrentPathPoints(prev => {
+        if (prev.length === 0) return [pt];
+        const lastPt = prev[prev.length - 1];
+        if (Math.hypot(pt.x - lastPt.x, pt.y - lastPt.y) > 1.2) {
+          return [...prev, pt];
+        }
+        return prev;
+      });
+    };
+
+    const onNativeTouchEnd = (e: TouchEvent) => {
+      if (!isDrawingRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      isDrawingRef.current = false;
+
+      let endPt: Point | null = null;
+      if (e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        endPt = getRelativePoint(touch.clientX, touch.clientY);
+      }
+      const rawEndPt = endPt || lastPointRef.current;
+
+      if (!rawEndPt || currentPathPoints.length === 0) {
+        setCurrentPathPoints([]);
+        lastPointRef.current = null;
+        return;
+      }
+
+      const startPt = currentPathPoints[0];
+      const dist = Math.hypot(rawEndPt.x - startPt.x, rawEndPt.y - startPt.y);
+
+      if (dist < 2.0) {
+        // Tap without dragging: set as tap start point for 2-tap mode
+        setTapStartPoint(startPt);
+        setCurrentPathPoints([]);
+        lastPointRef.current = null;
+        return;
+      }
+
+      commitDrawing(startPt, rawEndPt, currentPathPoints);
       setCurrentPathPoints([]);
       lastPointRef.current = null;
-      return;
-    }
+    };
 
-    const startPt = currentPathPoints[0];
-    const dist = Math.hypot(rawEndPt.x - startPt.x, rawEndPt.y - startPt.y);
+    svgEl.addEventListener('touchstart', onNativeTouchStart, { passive: false });
+    svgEl.addEventListener('touchmove', onNativeTouchMove, { passive: false });
+    svgEl.addEventListener('touchend', onNativeTouchEnd, { passive: false });
+    svgEl.addEventListener('touchcancel', onNativeTouchEnd, { passive: false });
 
-    if (dist < 2.0) {
-      // Tap without dragging: set as tap start point for 2-tap mode
-      setTapStartPoint(startPt);
-      setCurrentPathPoints([]);
-      lastPointRef.current = null;
-      return;
-    }
-
-    commitDrawing(startPt, rawEndPt, currentPathPoints);
-    setCurrentPathPoints([]);
-    lastPointRef.current = null;
-  };
+    return () => {
+      svgEl.removeEventListener('touchstart', onNativeTouchStart);
+      svgEl.removeEventListener('touchmove', onNativeTouchMove);
+      svgEl.removeEventListener('touchend', onNativeTouchEnd);
+      svgEl.removeEventListener('touchcancel', onNativeTouchEnd);
+    };
+  }, [isDrawingTool, pieces, tapStartPoint, currentPathPoints, activeTool]);
 
   // 2. POINTER EVENT HANDLERS (Desktop Mouse / Stylus)
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -284,10 +301,6 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
   return (
     <svg
       ref={svgRef}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

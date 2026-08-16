@@ -161,9 +161,13 @@ export const BasketballCourt: React.FC<BasketballCourtProps> = ({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       id="basketball-court-canvas"
-      className={`relative w-full ${getAspectRatioClass()} select-none overflow-hidden transition-all duration-300 mx-auto ${theme.frameBg}`}
+      style={{ touchAction: 'none' }}
+      className={`relative w-full ${getAspectRatioClass()} select-none touch-none overflow-hidden transition-all duration-300 mx-auto ${theme.frameBg}`}
     >
-      <div className={`relative w-full h-full rounded-lg sm:rounded-2xl overflow-hidden ${theme.courtBg} ${theme.courtBorder}`}>
+      <div 
+        style={{ touchAction: 'none' }}
+        className={`relative w-full h-full rounded-lg sm:rounded-2xl overflow-hidden touch-none ${theme.courtBg} ${theme.courtBorder}`}
+      >
         <svg
           className="absolute inset-0 w-full h-full pointer-events-none"
           viewBox={viewBox}
