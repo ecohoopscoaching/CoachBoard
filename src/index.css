@@ -4,6 +4,8 @@ html, body, #root {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background-color: #000000;
+  color: #ffffff;
   overscroll-behavior: none;
   touch-action: none;
   -webkit-overflow-scrolling: auto;

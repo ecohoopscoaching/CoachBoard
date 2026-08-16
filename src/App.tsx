@@ -97,12 +97,15 @@ export function App() {
     }
   }, [savedPlays]);
 
-  const currentFrame = currentPlay.keyframes[activeFrameIndex] || currentPlay.keyframes[0];
+  const currentFrame: Keyframe =
+    (currentPlay?.keyframes && currentPlay.keyframes[activeFrameIndex]) ||
+    (currentPlay?.keyframes && currentPlay.keyframes[0]) ||
+    DEFAULT_INITIAL_PLAY.keyframes[0];
 
   React.useEffect(() => {
-    if (!isPlaying) {
-      setAnimatedPieces(currentFrame.pieces);
-      setAnimatedBall(currentFrame.ball);
+    if (!isPlaying && currentFrame) {
+      setAnimatedPieces(currentFrame.pieces || []);
+      setAnimatedBall(currentFrame.ball || null);
     }
   }, [activeFrameIndex, currentFrame, isPlaying]);
 
