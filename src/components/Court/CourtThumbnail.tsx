@@ -59,7 +59,7 @@ export const CourtThumbnail: React.FC<CourtThumbnailProps> = ({
       <svg
         viewBox={viewBox}
         className="absolute inset-0 w-full h-full pointer-events-none"
-        preserveAspectRatio="none"
+        preserveAspectRatio="xMidYMid meet"
       >
         <defs>
           {/* Subtle Hardwood Pattern without black stroke inheritance */}

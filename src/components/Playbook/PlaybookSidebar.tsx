@@ -23,6 +23,7 @@ import {
   Save,
   Check,
   Eye,
+  Plus,
 } from 'lucide-react';
 import { soundEffects } from '../../services/soundEffects';
 import { PlayCardDetailView } from './PlayCardDetailView';
@@ -101,7 +102,6 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
     return matchesSearch && matchesCategory;
   });
 
-  // Export full playbook backup (.json)
   const handleExportPlaybook = () => {
     if (savedPlays.length === 0) {
       showFeedback('No plays to export! Save a play first.');
@@ -122,7 +122,6 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
     showFeedback(`Exported ${savedPlays.length} plays to JSON file!`);
   };
 
-  // Export a single play (.json)
   const handleExportSinglePlay = (play: Play, e?: React.MouseEvent) => {
     if (e && e.stopPropagation) e.stopPropagation();
     const dataStr = JSON.stringify(play, null, 2);
@@ -140,7 +139,6 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
     showFeedback(`Downloaded "${play.title}" JSON!`);
   };
 
-  // Import JSON file (handles both single play and full playbook array)
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -150,7 +148,6 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
       try {
         const parsed = JSON.parse(event.target?.result as string);
         if (Array.isArray(parsed)) {
-          // Array of plays
           const validPlays = parsed.filter(p => p && p.id && Array.isArray(p.keyframes));
           if (validPlays.length > 0) {
             onImportPlays(validPlays);
@@ -160,7 +157,6 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
             showFeedback('No valid plays found in JSON array.');
           }
         } else if (parsed && parsed.id && Array.isArray(parsed.keyframes)) {
-          // Single play
           onImportPlays([parsed]);
           soundEffects.playWhistle();
           showFeedback(`Imported "${parsed.title || 'Play'}"!`);
@@ -175,7 +171,6 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
     e.target.value = '';
   };
 
-  // 1. DEDICATED CARD VIEW (When a user clicks on a card)
   if (selectedPlay) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md animate-fade-in p-0 sm:p-4">
@@ -202,130 +197,102 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/85 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-lg bg-[#0c0d10] border-l border-zinc-800 text-zinc-100 h-full flex flex-col shadow-2xl animate-slide-left">
-        {/* Spurs Header */}
-        <div className="p-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-950/80">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md animate-fade-in p-2 sm:p-4 md:p-6">
+      <div className="w-full max-w-6xl h-[94vh] bg-[#0c0d10] border border-zinc-800 rounded-2xl sm:rounded-3xl text-zinc-100 flex flex-col shadow-2xl overflow-hidden animate-scale-in">
+        
+        <div className="p-4 sm:p-5 border-b border-zinc-800/80 bg-zinc-950/90 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-200 shadow-inner">
-              <BookOpen className="w-4 h-4 text-zinc-300" />
+            <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-200 shadow-inner">
+              <BookOpen className="w-5 h-5 text-[#c4ced4]" />
             </div>
             <div>
-              <h2 className="text-sm font-black uppercase tracking-wider text-white">
-                Tactical Playbook
-              </h2>
-              <p className="text-[11px] text-zinc-400 font-medium">
-                San Antonio Spurs Style Coaching Library
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black uppercase tracking-wider text-white">
+                  Tactical Playbook
+                </h2>
+                <span className="bg-zinc-800 border border-zinc-700 text-[#c4ced4] text-[10px] font-black uppercase px-2 py-0.5 rounded-md">
+                  {currentPlayList.length} {currentPlayList.length === 1 ? 'Play' : 'Plays'}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 font-medium">
+                San Antonio Spurs Style Coaching & Tactical Diagram Library
               </p>
             </div>
           </div>
-          <button
-            onClick={() => {
-              soundEffects.playClick();
-              onClose();
-            }}
-            className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-all"
-            title="Close Playbook"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
 
-        {/* Save Current Board Banner */}
-        <div className="p-3 bg-zinc-900/90 border-b border-zinc-800/80 flex items-center justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
-              Active Board
-            </span>
-            <p className="text-xs font-black text-zinc-100 truncate">
-              {currentPlay.title || 'Untitled Play'}
-            </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                onSaveCurrentPlay();
+                showFeedback(`Saved "${currentPlay.title}" to Playbook!`);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-black text-xs shadow-md border border-white transition-all active:scale-95"
+            >
+              <Save className="w-3.5 h-3.5 fill-current" />
+              <span>Save Current Board</span>
+            </button>
+
+            <button
+              onClick={handleExportPlaybook}
+              disabled={savedPlays.length === 0}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white font-bold text-xs transition-all disabled:opacity-40"
+              title="Export all saved plays as JSON"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export</span>
+            </button>
+
+            <label className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white font-bold text-xs transition-all cursor-pointer">
+              <Upload className="w-3.5 h-3.5" />
+              <span>Import</span>
+              <input type="file" accept=".json" onChange={handleFileInput} className="hidden" />
+            </label>
+
+            <button
+              onClick={() => {
+                soundEffects.playClick();
+                onClose();
+              }}
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 border border-transparent hover:border-zinc-700 transition-all ml-1"
+              title="Close Playbook"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={() => {
-              onSaveCurrentPlay();
-              showFeedback(`Saved "${currentPlay.title}" to Playbook!`);
-            }}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-black text-xs shadow-md border border-white transition-all shrink-0 active:scale-95"
-          >
-            <Save className="w-3.5 h-3.5 fill-current" />
-            <span>Save to Playbook</span>
-          </button>
         </div>
 
-        {/* Notification Toast */}
         {saveToast && (
-          <div className="mx-4 mt-3 p-2.5 rounded-xl bg-zinc-800 border border-zinc-600 text-zinc-100 text-xs font-bold flex items-center gap-2 shadow-lg animate-fade-in">
+          <div className="mx-4 sm:mx-6 mt-3 p-3 rounded-2xl bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs font-bold flex items-center gap-2.5 shadow-xl animate-fade-in shrink-0">
             <Check className="w-4 h-4 text-emerald-400 shrink-0" />
             <span className="truncate">{saveToast}</span>
           </div>
         )}
 
-        {/* Tab switch only if presets exist */}
-        {PRESET_PLAYS.length > 0 && (
-          <div className="flex items-center p-3 border-b border-zinc-800/80 gap-2 bg-zinc-950/40">
-            <button
-              onClick={() => {
-                soundEffects.playClick();
-                setActiveTab('presets');
-              }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black transition-all ${
-                activeTab === 'presets'
-                  ? 'bg-zinc-200 text-zinc-950 shadow-md border border-white'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Preset Plays ({PRESET_PLAYS.length})</span>
-            </button>
-
-            <button
-              onClick={() => {
-                soundEffects.playClick();
-                setActiveTab('saved');
-              }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-black transition-all ${
-                activeTab === 'saved'
-                  ? 'bg-zinc-200 text-zinc-950 shadow-md border border-white'
-                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
-              }`}
-            >
-              <FolderHeart className="w-3.5 h-3.5" />
-              <span>My Plays ({savedPlays.length})</span>
-            </button>
-          </div>
-        )}
-
-        {/* Search Bar */}
-        <div className="p-3.5 border-b border-zinc-800/80 bg-zinc-950/20">
+        <div className="p-4 sm:p-5 border-b border-zinc-800/80 bg-[#0a0a0c] flex flex-col gap-3 shrink-0">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search plays, actions, tags, sets..."
-              className="w-full bg-zinc-900/90 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-all"
+              placeholder="Search plays, actions, tactical concepts, tags..."
+              className="w-full pl-10 pr-4 py-2.5 bg-zinc-900/90 border border-zinc-800 focus:border-zinc-500 rounded-xl text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none transition-colors"
             />
-          </div>
-        </div>
-
-        {/* Category Cards Grid */}
-        <div className="p-3.5 border-b border-zinc-800/80 bg-zinc-950/40">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">
-              Categories
-            </span>
-            <span className="text-[10px] font-semibold text-zinc-500">
-              {filteredPlays.length} {filteredPlays.length === 1 ? 'play' : 'plays'} found
-            </span>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs"
+              >
+                Clear
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
             {CATEGORIES.map(cat => {
               const Icon = cat.icon;
-              const isSelected = selectedCategory === cat.id;
               const count = getCategoryCount(cat.id);
+              const isSelected = selectedCategory === cat.id;
 
               return (
                 <button
@@ -334,21 +301,17 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
                     soundEffects.playClick();
                     setSelectedCategory(cat.id);
                   }}
-                  className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all text-center ${
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all shrink-0 border ${
                     isSelected
-                      ? 'bg-gradient-to-b from-zinc-100 to-zinc-300 text-zinc-950 font-black border-white shadow-lg shadow-white/10 ring-1 ring-zinc-300'
-                      : 'bg-zinc-900/80 hover:bg-zinc-800/90 text-zinc-400 hover:text-zinc-200 border-zinc-800/90 hover:border-zinc-700'
+                      ? 'bg-white text-zinc-950 border-white shadow-md ring-1 ring-zinc-300'
+                      : 'bg-zinc-900/90 text-zinc-400 hover:text-zinc-200 border-zinc-800 hover:border-zinc-700'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 mb-1 ${isSelected ? 'text-zinc-950' : 'text-zinc-400'}`} />
-                  <span className="text-[10.5px] leading-tight font-bold tracking-tight">
-                    {cat.label}
-                  </span>
+                  <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-zinc-950' : 'text-[#c4ced4]'}`} />
+                  <span>{cat.label}</span>
                   <span
-                    className={`mt-1 text-[9px] font-extrabold px-1.5 py-0.2 rounded-full ${
-                      isSelected
-                        ? 'bg-zinc-950 text-zinc-100'
-                        : 'bg-zinc-800 text-zinc-400 border border-zinc-700/60'
+                    className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                      isSelected ? 'bg-zinc-200 text-zinc-950' : 'bg-zinc-800 text-zinc-400'
                     }`}
                   >
                     {count}
@@ -359,152 +322,164 @@ export const PlaybookSidebar: React.FC<PlaybookSidebarProps> = ({
           </div>
         </div>
 
-        {/* Play Cards List */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-[#0a0a0c]">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#08080a]">
           {filteredPlays.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-12 px-6 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex items-center justify-center mb-3 text-zinc-500">
-                <FolderHeart className="w-6 h-6" />
+            <div className="h-full flex flex-col items-center justify-center py-16 px-6 text-center">
+              <div className="w-14 h-14 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4 text-zinc-500 shadow-xl">
+                <FolderHeart className="w-7 h-7 text-[#c4ced4]" />
               </div>
-              <h4 className="text-xs font-black uppercase text-zinc-300 tracking-wider mb-1">
+              <h4 className="text-sm font-black uppercase text-zinc-200 tracking-wider mb-1">
                 No Plays Found
               </h4>
-              <p className="text-[11px] text-zinc-500 max-w-xs leading-relaxed mb-3">
+              <p className="text-xs text-zinc-500 max-w-sm leading-relaxed mb-4">
                 {selectedCategory === 'all'
-                  ? 'Your playbook is currently empty. Design and save custom plays on the board to build your library.'
-                  : `No plays currently saved under the "${CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory}" category.`}
+                  ? 'Your playbook is currently empty. Design plays on the board and click "Save Current Board" to build your custom coaching library.'
+                  : `No plays found under "${CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory}".`}
               </p>
+              <button
+                onClick={() => {
+                  onSaveCurrentPlay();
+                  showFeedback(`Saved "${currentPlay.title}" to Playbook!`);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-black text-xs shadow-md transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Save Active Board Now</span>
+              </button>
             </div>
           ) : (
-            filteredPlays.map(play => {
-              const firstFrame = play.keyframes?.[0] || { pieces: [], ball: null, drawings: [] };
-              return (
-                <div
-                  key={play.id}
-                  onClick={() => {
-                    soundEffects.playClick();
-                    setSelectedPlay(play);
-                  }}
-                  className="bg-zinc-900/80 hover:bg-zinc-900 border border-zinc-800/90 hover:border-[#c4ced4]/70 rounded-2xl p-3.5 flex flex-col gap-2.5 transition-all hover:shadow-2xl cursor-pointer group"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <span className="inline-block bg-zinc-800 text-[#c4ced4] border border-zinc-700/80 text-[9px] font-black uppercase px-2 py-0.5 rounded-md mb-1 tracking-wider">
-                        {play.category} • {play.courtType} court
-                      </span>
-                      <h3 className="text-sm font-black text-white group-hover:text-zinc-100 transition-colors truncate">
-                        {play.title}
-                      </h3>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredPlays.map(play => {
+                const firstFrame = play.keyframes?.[0] || { pieces: [], ball: null, drawings: [] };
+                return (
+                  <div
+                    key={play.id}
+                    onClick={() => {
+                      soundEffects.playClick();
+                      setSelectedPlay(play);
+                    }}
+                    className="bg-zinc-900/70 hover:bg-zinc-900 border border-zinc-800/90 hover:border-[#c4ced4] rounded-2xl p-4 flex flex-col justify-between gap-3.5 transition-all hover:shadow-2xl cursor-pointer group hover:-translate-y-0.5 duration-200"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="inline-block bg-zinc-800 text-[#c4ced4] border border-zinc-700 text-[10px] font-black uppercase px-2 py-0.5 rounded-md mb-1 tracking-wider">
+                            {play.category} • {play.courtType} court
+                          </span>
+                          <h3 className="text-base font-black text-white group-hover:text-zinc-100 transition-colors truncate">
+                            {play.title}
+                          </h3>
+                        </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={e => handleExportSinglePlay(play, e)}
-                        className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-                        title="Download Play JSON"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-                      {activeTab === 'saved' && (
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            soundEffects.playClick();
-                            onDeletePlay(play.id);
-                            showFeedback(`Deleted "${play.title}"`);
-                          }}
-                          className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
-                          title="Delete Play"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={e => handleExportSinglePlay(play, e)}
+                            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                            title="Download Play JSON"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          {activeTab === 'saved' && (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                soundEffects.playClick();
+                                onDeletePlay(play.id);
+                                showFeedback(`Deleted "${play.title}"`);
+                              }}
+                              className="p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                              title="Delete Play"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="w-full max-w-[280px] mx-auto rounded-xl overflow-hidden border border-zinc-800 group-hover:border-zinc-700 bg-black transition-colors pointer-events-none my-1 shadow-inner">
+                        <CourtThumbnail
+                          pieces={firstFrame.pieces}
+                          ball={firstFrame.ball}
+                          drawings={firstFrame.drawings}
+                          courtType={play.courtType}
+                          className="w-full"
+                        />
+                      </div>
+
+                      {play.description ? (
+                        <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed mt-2">
+                          {play.description}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-zinc-600 italic mt-2">
+                          {play.keyframes?.length || 1} phase{(play.keyframes?.length || 1) > 1 ? 's' : ''} diagrammed
+                        </p>
+                      )}
+
+                      {play.tags && play.tags.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 mt-2">
+                          {play.tags.map(tag => (
+                            <span
+                              key={tag}
+                              className="flex items-center gap-1 text-[10px] font-medium text-zinc-300 bg-zinc-950/80 px-2 py-0.5 rounded border border-zinc-800"
+                            >
+                              <Tag className="w-2.5 h-2.5 text-zinc-400" />
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
-                  </div>
 
-                  {/* Visual Court Thumbnail Preview on Card */}
-                  <div className="w-full rounded-xl overflow-hidden border border-zinc-800 group-hover:border-zinc-700 bg-black transition-colors pointer-events-none">
-                    <CourtThumbnail
-                      pieces={firstFrame.pieces}
-                      ball={firstFrame.ball}
-                      drawings={firstFrame.drawings}
-                      courtType={play.courtType}
-                      className="w-full max-h-36 object-contain"
-                    />
-                  </div>
+                    <div className="pt-2 border-t border-zinc-800/80 grid grid-cols-2 gap-2">
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          soundEffects.playClick();
+                          setSelectedPlay(play);
+                        }}
+                        className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold text-xs text-zinc-200 border border-zinc-700 transition-all shadow-sm"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-[#c4ced4]" />
+                        <span>Inspect & Notes</span>
+                      </button>
 
-                  {play.description && (
-                    <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
-                      {play.description}
-                    </p>
-                  )}
-
-                  {/* Tags */}
-                  {play.tags && play.tags.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1">
-                      {play.tags.map(tag => (
-                        <span
-                          key={tag}
-                          className="flex items-center gap-1 text-[10px] font-medium text-zinc-300 bg-zinc-950/80 px-2 py-0.5 rounded border border-zinc-800"
-                        >
-                          <Tag className="w-2.5 h-2.5 text-zinc-400" />
-                          {tag}
-                        </span>
-                      ))}
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          soundEffects.playWhistle();
+                          onLoadPlay(play);
+                          onClose();
+                        }}
+                        className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-white hover:bg-zinc-200 font-black text-xs text-zinc-950 border border-white transition-all shadow-sm"
+                      >
+                        <PlayIcon className="w-3.5 h-3.5 fill-current text-zinc-950" />
+                        <span>Load to Board</span>
+                      </button>
                     </div>
-                  )}
-
-                  {/* Actions Row: Open Page & Load */}
-                  <div className="mt-1 grid grid-cols-2 gap-2">
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        soundEffects.playClick();
-                        setSelectedPlay(play);
-                      }}
-                      className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 font-bold text-xs text-zinc-200 border border-zinc-700 transition-all shadow-sm"
-                    >
-                      <Eye className="w-3.5 h-3.5 text-[#c4ced4]" />
-                      <span>View & Notes</span>
-                    </button>
-
-                    <button
-                      onClick={e => {
-                        e.stopPropagation();
-                        soundEffects.playClick();
-                        onLoadPlay(play);
-                        onClose();
-                      }}
-                      className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-white hover:bg-zinc-200 font-black text-xs text-zinc-950 border border-white transition-all shadow-sm"
-                    >
-                      <PlayIcon className="w-3.5 h-3.5 fill-current text-zinc-950" />
-                      <span>Load to Board</span>
-                    </button>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </div>
 
-        {/* Footer Backup & Restore Actions */}
-        <div className="p-3.5 border-t border-zinc-800/80 bg-zinc-950 flex items-center gap-2.5">
+        <div className="sm:hidden p-3 border-t border-zinc-800/80 bg-zinc-950 flex items-center gap-2">
           <button
             onClick={handleExportPlaybook}
             disabled={savedPlays.length === 0}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 disabled:pointer-events-none text-zinc-200 hover:text-white border border-zinc-800 hover:border-zinc-600 font-bold text-xs transition-all shadow-sm"
-            title="Download full playbook backup JSON"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs font-bold"
           >
-            <Download className="w-3.5 h-3.5 text-zinc-300" />
-            <span>Export Playbook ({savedPlays.length})</span>
+            <Download className="w-3.5 h-3.5" />
+            <span>Export</span>
           </button>
-
-          <label className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white border border-zinc-800 hover:border-zinc-600 font-bold text-xs cursor-pointer transition-all shadow-sm">
-            <Upload className="w-3.5 h-3.5 text-zinc-300" />
-            <span>Import JSON</span>
+          <label className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-200 text-xs font-bold cursor-pointer">
+            <Upload className="w-3.5 h-3.5" />
+            <span>Import</span>
             <input type="file" accept=".json" onChange={handleFileInput} className="hidden" />
           </label>
         </div>
+
       </div>
     </div>
   );
