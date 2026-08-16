@@ -144,9 +144,9 @@ export const KeyframeTimeline: React.FC<KeyframeTimelineProps> = ({
           </button>
 
           {/* Speed Selector */}
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-sky-950">
-            <Gauge className="w-3.5 h-3.5 text-sky-400 ml-1" />
-            {[0.5, 1, 1.5, 2].map(speed => (
+          <div className="flex items-center gap-1 bg-[#141414] p-1 rounded-lg border border-[#262626]">
+            <Gauge className="w-3.5 h-3.5 text-slate-400 ml-1" />
+            {[0.5, 0.75, 1, 1.25, 1.5].map(speed => (
               <button
                 key={speed}
                 onClick={() => {
@@ -155,7 +155,7 @@ export const KeyframeTimeline: React.FC<KeyframeTimelineProps> = ({
                 }}
                 className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
                   playbackSpeed === speed
-                    ? 'bg-sky-400 text-slate-950 font-black shadow'
+                    ? 'bg-white text-black font-black shadow'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >

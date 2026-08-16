@@ -38,7 +38,13 @@ export const ActionToolbox: React.FC<ActionToolboxProps> = ({
     { id: 'handoff', label: 'Handoff', desc: 'Handoff bar' },
   ];
 
-  const numbers = ['1', '2', '3', '4', '5', '?'];
+  const offenseNumbers = ['1', '2', '3', '4', '5', '6', '7', '?'];
+  const defenseNumbers = ['1', '2', '3', '4', '5', '6', '7', '?'];
+
+  const handleDragStart = (e: React.DragEvent, payload: Record<string, any>) => {
+    e.dataTransfer.setData('application/coachboard-item', JSON.stringify(payload));
+    e.dataTransfer.effectAllowed = 'copy';
+  };
 
   return (
     <aside className="w-56 sm:w-64 bg-[#0a0a0a] border-l border-[#262626] flex flex-col h-full z-30 select-none overflow-y-auto p-3 sm:p-4 gap-4 text-white">
@@ -155,32 +161,41 @@ export const ActionToolbox: React.FC<ActionToolboxProps> = ({
         </div>
       </div>
 
-      {/* 3. SECTION: ADD PLAYERS */}
+      {/* 3. SECTION: ADD PLAYERS (1-7 & X1-X7 with Drag-and-Drop) */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-black uppercase tracking-wider text-[#c4ced4]">
-            Add Players
+            Add Players (Click or Drag)
           </span>
         </div>
 
-        <div className="flex flex-col gap-2.5 bg-[#141414] p-3 rounded-2xl border border-[#262626]">
-          {/* Offense Row: Circled Numbers (1) - (5) + (?) */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Offense</span>
-            <div className="grid grid-cols-6 gap-1.5">
-              {numbers.map(num => {
+        <div className="flex flex-col gap-3 bg-[#141414] p-3 rounded-2xl border border-[#262626]">
+          {/* Offense Row: Circled Numbers (1) - (7) + (?) */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Offense 1–7</span>
+            <div className="grid grid-cols-4 gap-1.5">
+              {offenseNumbers.map(num => {
                 const isSelected = activeTool === 'add_offense_circled' && selectedPlayerLabel === num;
                 return (
                   <button
                     key={`c-${num}`}
+                    draggable={true}
+                    onDragStart={(e) =>
+                      handleDragStart(e, {
+                        type: 'offense',
+                        tool: 'add_offense_circled',
+                        label: num,
+                        style: 'circle-number',
+                      })
+                    }
                     onClick={() => {
                       soundEffects.playClick();
                       onSelectPlayerTemplate('circle-number', num);
                     }}
-                    title={`Add Offense Player (${num})`}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm transition-all border-2 ${
+                    title={`Click or Drag Offense Player (${num})`}
+                    className={`h-9 rounded-xl flex items-center justify-center font-black text-sm transition-all border-2 cursor-grab active:cursor-grabbing ${
                       isSelected
-                        ? 'bg-white text-black border-white ring-2 ring-[#c4ced4] scale-110 shadow-lg'
+                        ? 'bg-white text-black border-white ring-2 ring-[#c4ced4] scale-105 shadow-lg'
                         : 'bg-white/10 text-white border-white/60 hover:bg-white hover:text-black'
                     }`}
                   >
@@ -191,24 +206,33 @@ export const ActionToolbox: React.FC<ActionToolboxProps> = ({
             </div>
           </div>
 
-          {/* Defense Row: Defenders X1 - X5 + X? */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Defense</span>
-            <div className="grid grid-cols-6 gap-1.5">
-              {numbers.map(num => {
+          {/* Defense Row: Defenders X1 - X7 + X? */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Defense X1–X7</span>
+            <div className="grid grid-cols-4 gap-1.5">
+              {defenseNumbers.map(num => {
                 const label = num === '?' ? 'X?' : `X${num}`;
                 const isSelected = activeTool === 'add_defense_x' && selectedPlayerLabel === label;
                 return (
                   <button
                     key={`d-${num}`}
+                    draggable={true}
+                    onDragStart={(e) =>
+                      handleDragStart(e, {
+                        type: 'defense',
+                        tool: 'add_defense_x',
+                        label,
+                        style: 'defense-x',
+                      })
+                    }
                     onClick={() => {
                       soundEffects.playClick();
                       onSelectPlayerTemplate('defense-x', label);
                     }}
-                    title={`Add Defender ${label}`}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all border-2 ${
+                    title={`Click or Drag Defender ${label}`}
+                    className={`h-9 rounded-xl flex items-center justify-center font-black text-xs transition-all border-2 cursor-grab active:cursor-grabbing ${
                       isSelected
-                        ? 'bg-white text-black border-white ring-2 ring-[#c4ced4] scale-110 shadow-lg'
+                        ? 'bg-white text-black border-white ring-2 ring-[#c4ced4] scale-105 shadow-lg'
                         : 'bg-[#1e1e1e] text-[#c4ced4] border-[#404040] hover:bg-white hover:text-black hover:border-white'
                     }`}
                   >
@@ -221,23 +245,25 @@ export const ActionToolbox: React.FC<ActionToolboxProps> = ({
         </div>
       </div>
 
-      {/* 4. SECTION: ADD MISC */}
+      {/* 4. SECTION: ADD MISC (Basketball, Cones, Shapes, Notes) */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-black uppercase tracking-wider text-[#c4ced4]">
-            Add Misc
+            Add Misc (Click or Drag)
           </span>
         </div>
 
         <div className="grid grid-cols-4 gap-1.5 bg-[#141414] p-2.5 rounded-2xl border border-[#262626]">
           {/* Basketball */}
           <button
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, { tool: 'add_ball' })}
             onClick={() => {
               soundEffects.playClick();
               onSelectTool('add_ball');
             }}
             title="Basketball"
-            className={`p-1.5 rounded-xl flex items-center justify-center transition-all ${
+            className={`p-1.5 rounded-xl flex items-center justify-center transition-all cursor-grab active:cursor-grabbing ${
               activeTool === 'add_ball'
                 ? 'bg-white/20 border border-white ring-2 ring-[#c4ced4] scale-105'
                 : 'hover:bg-[#262626]'
@@ -248,114 +274,128 @@ export const ActionToolbox: React.FC<ActionToolboxProps> = ({
 
           {/* Cone */}
           <button
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, { tool: 'add_cone' })}
             onClick={() => {
               soundEffects.playClick();
               onSelectTool('add_cone');
             }}
             title="Training Cone"
-            className={`p-2 rounded-xl flex items-center justify-center transition-all ${
+            className={`p-2 rounded-xl flex items-center justify-center transition-all cursor-grab active:cursor-grabbing ${
               activeTool === 'add_cone'
                 ? 'bg-orange-500 text-white ring-2 ring-white scale-105'
                 : 'text-orange-400 hover:bg-[#262626]'
             }`}
           >
-            <Flame className="w-5 h-5" />
+            <Flame className="w-5 h-5 pointer-events-none" />
           </button>
 
           {/* Text Annotation */}
           <button
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, { tool: 'add_text' })}
             onClick={() => {
               soundEffects.playClick();
               onSelectTool('add_text');
             }}
             title="Text Note"
-            className={`p-2 rounded-xl flex items-center justify-center transition-all ${
+            className={`p-2 rounded-xl flex items-center justify-center transition-all cursor-grab active:cursor-grabbing ${
               activeTool === 'add_text'
                 ? 'bg-[#c4ced4] text-black ring-2 ring-white scale-105'
                 : 'text-slate-300 hover:bg-[#262626]'
             }`}
           >
-            <Type className="w-5 h-5" />
+            <Type className="w-5 h-5 pointer-events-none" />
           </button>
 
           {/* Rectangle Shape */}
           <button
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, { tool: 'add_rect' })}
             onClick={() => {
               soundEffects.playClick();
               onSelectTool('add_rect');
             }}
             title="Rectangle"
-            className={`p-2 rounded-xl flex items-center justify-center transition-all ${
+            className={`p-2 rounded-xl flex items-center justify-center transition-all cursor-grab active:cursor-grabbing ${
               activeTool === 'add_rect'
                 ? 'bg-[#c4ced4] text-black ring-2 ring-white scale-105'
                 : 'text-slate-300 hover:bg-[#262626]'
             }`}
           >
-            <Square className="w-5 h-5" />
+            <Square className="w-5 h-5 pointer-events-none" />
           </button>
 
           {/* Circle Shape */}
           <button
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, { tool: 'add_circle' })}
             onClick={() => {
               soundEffects.playClick();
               onSelectTool('add_circle');
             }}
             title="Circle"
-            className={`p-2 rounded-xl flex items-center justify-center transition-all ${
+            className={`p-2 rounded-xl flex items-center justify-center transition-all cursor-grab active:cursor-grabbing ${
               activeTool === 'add_circle'
                 ? 'bg-[#c4ced4] text-black ring-2 ring-white scale-105'
                 : 'text-slate-300 hover:bg-[#262626]'
             }`}
           >
-            <Circle className="w-5 h-5" />
+            <Circle className="w-5 h-5 pointer-events-none" />
           </button>
 
           {/* Triangle Shape */}
           <button
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, { tool: 'add_triangle' })}
             onClick={() => {
               soundEffects.playClick();
               onSelectTool('add_triangle');
             }}
             title="Triangle"
-            className={`p-2 rounded-xl flex items-center justify-center transition-all ${
+            className={`p-2 rounded-xl flex items-center justify-center transition-all cursor-grab active:cursor-grabbing ${
               activeTool === 'add_triangle'
                 ? 'bg-[#c4ced4] text-black ring-2 ring-white scale-105'
                 : 'text-slate-300 hover:bg-[#262626]'
             }`}
           >
-            <Triangle className="w-5 h-5" />
+            <Triangle className="w-5 h-5 pointer-events-none" />
           </button>
 
           {/* Diamond Shape */}
           <button
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, { tool: 'add_diamond' })}
             onClick={() => {
               soundEffects.playClick();
               onSelectTool('add_diamond');
             }}
             title="Diamond"
-            className={`p-2 rounded-xl flex items-center justify-center transition-all ${
+            className={`p-2 rounded-xl flex items-center justify-center transition-all cursor-grab active:cursor-grabbing ${
               activeTool === 'add_diamond'
                 ? 'bg-[#c4ced4] text-black ring-2 ring-white scale-105'
                 : 'text-slate-300 hover:bg-[#262626]'
             }`}
           >
-            <Diamond className="w-5 h-5" />
+            <Diamond className="w-5 h-5 pointer-events-none" />
           </button>
 
           {/* Line Marker */}
           <button
+            draggable={true}
+            onDragStart={(e) => handleDragStart(e, { tool: 'add_line' })}
             onClick={() => {
               soundEffects.playClick();
               onSelectTool('add_line');
             }}
             title="Boundary Line"
-            className={`p-2 rounded-xl flex items-center justify-center transition-all ${
+            className={`p-2 rounded-xl flex items-center justify-center transition-all cursor-grab active:cursor-grabbing ${
               activeTool === 'add_line'
                 ? 'bg-[#c4ced4] text-black ring-2 ring-white scale-105'
                 : 'text-slate-300 hover:bg-[#262626]'
             }`}
           >
-            <Minus className="w-5 h-5" />
+            <Minus className="w-5 h-5 pointer-events-none" />
           </button>
         </div>
       </div>

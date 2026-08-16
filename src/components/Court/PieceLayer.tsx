@@ -96,7 +96,8 @@ export const PieceLayer: React.FC<PieceLayerProps> = ({
               left: `${piece.x}%`,
               top: `${piece.y}%`,
               transform: 'translate(-50%, -50%)',
-              transition: isAnimating ? 'all 0.05s linear' : 'none',
+              transition: 'none',
+              willChange: 'left, top, transform',
             }}
             className="absolute pointer-events-auto cursor-grab active:cursor-grabbing group touch-none select-none z-10"
           >
@@ -192,7 +193,8 @@ export const PieceLayer: React.FC<PieceLayerProps> = ({
             left: `${ball.x}%`,
             top: `${ball.y}%`,
             transform: `translate(-50%, -50%) scale(${1 + (ball.height || 0) * 0.35})`,
-            transition: isAnimating ? 'all 0.05s linear' : 'none',
+            transition: 'none',
+            willChange: 'left, top, transform',
           }}
           className="absolute pointer-events-auto cursor-grab active:cursor-grabbing group touch-none select-none z-20"
         >

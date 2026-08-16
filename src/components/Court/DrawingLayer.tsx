@@ -37,8 +37,8 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
     const pt = getRelativePoint(e);
     if (!pt) return;
 
-    // Snap to nearby piece if within 6%
-    const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 6);
+    // Snap to nearby piece if within 8%
+    const nearbyPiece = pieces.find(p => Math.hypot(p.x - pt.x, p.y - pt.y) < 8);
     const startPt = nearbyPiece ? { x: nearbyPiece.x, y: nearbyPiece.y } : pt;
 
     setCurrentPathPoints([startPt]);
@@ -52,18 +52,24 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
     const lastPt = currentPathPoints[currentPathPoints.length - 1];
     const dist = Math.hypot(pt.x - lastPt.x, pt.y - lastPt.y);
 
-    // Sample points every ~2.5 units to capture smooth curves
-    if (dist > 2.5) {
+    // Sample points every ~2 units to capture smooth curves
+    if (dist > 2.0) {
       setCurrentPathPoints([...currentPathPoints, pt]);
     }
   };
 
   const handleMouseUp = (e: React.MouseEvent<SVGSVGElement>) => {
     if (currentPathPoints.length === 0) return;
-    const endPt = getRelativePoint(e) || currentPathPoints[currentPathPoints.length - 1];
+    const rawEndPt = getRelativePoint(e) || currentPathPoints[currentPathPoints.length - 1];
+
+    // Snap end point to nearby piece if pass or handoff
+    const nearbyEnd = pieces.find(p => Math.hypot(p.x - rawEndPt.x, p.y - rawEndPt.y) < 8);
+    const endPt = (nearbyEnd && (activeTool === 'pass' || activeTool === 'handoff'))
+      ? { x: nearbyEnd.x, y: nearbyEnd.y }
+      : rawEndPt;
 
     const finalPoints = [...currentPathPoints];
-    if (Math.hypot(endPt.x - finalPoints[finalPoints.length - 1].x, endPt.y - finalPoints[finalPoints.length - 1].y) > 1) {
+    if (Math.hypot(endPt.x - finalPoints[finalPoints.length - 1].x, endPt.y - finalPoints[finalPoints.length - 1].y) > 0.5) {
       finalPoints.push(endPt);
     }
 
@@ -71,8 +77,8 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
       const startPt = finalPoints[0];
       const finishPt = finalPoints[finalPoints.length - 1];
 
-      const nearbyStart = pieces.find(p => Math.hypot(p.x - startPt.x, p.y - startPt.y) < 6);
-      const nearbyEnd = pieces.find(p => Math.hypot(p.x - finishPt.x, p.y - finishPt.y) < 6);
+      const nearbyStart = pieces.find(p => Math.hypot(p.x - startPt.x, p.y - startPt.y) < 8);
+      const targetEnd = pieces.find(p => Math.hypot(p.x - finishPt.x, p.y - finishPt.y) < 8);
 
       const colorMap: Record<string, string> = {
         pass: '#0a0a0a',
@@ -88,7 +94,7 @@ export const DrawingLayer: React.FC<DrawingLayerProps> = ({
         type: activeTool as DrawingElement['type'],
         points: finalPoints,
         fromPieceId: nearbyStart?.id,
-        toPieceId: nearbyEnd?.id,
+        toPieceId: targetEnd?.id,
         color: colorMap[activeTool] || '#0a0a0a',
       };
 

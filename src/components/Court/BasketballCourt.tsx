@@ -6,6 +6,7 @@ interface BasketballCourtProps {
   courtTheme: CourtTheme;
   children?: React.ReactNode;
   onCourtClick?: (point: Point) => void;
+  onCourtDrop?: (payload: any, point: Point) => void;
   innerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -14,6 +15,7 @@ export const BasketballCourt: React.FC<BasketballCourtProps> = ({
   courtTheme = 'spurs-hardwood',
   children,
   onCourtClick,
+  onCourtDrop,
   innerRef,
 }) => {
   const localRef = React.useRef<HTMLDivElement>(null);
@@ -22,9 +24,34 @@ export const BasketballCourt: React.FC<BasketballCourtProps> = ({
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current || !onCourtClick) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    const x = Math.max(2, Math.min(98, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(2, Math.min(98, ((e.clientY - rect.top) / rect.height) * 100));
     onCourtClick({ x, y });
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!containerRef.current || !onCourtDrop) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.max(2, Math.min(98, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(2, Math.min(98, ((e.clientY - rect.top) / rect.height) * 100));
+
+    try {
+      const raw = e.dataTransfer.getData('application/coachboard-item');
+      if (raw) {
+        const payload = JSON.parse(raw);
+        onCourtDrop(payload, { x, y });
+      }
+    } catch (err) {
+      console.error('Error in court drop:', err);
+    }
   };
 
   const getThemeStyles = () => {
@@ -131,6 +158,8 @@ export const BasketballCourt: React.FC<BasketballCourtProps> = ({
     <div
       ref={containerRef}
       onClick={handleClick}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
       id="basketball-court-canvas"
       className={`relative w-full ${getAspectRatioClass()} select-none overflow-hidden transition-all duration-300 mx-auto ${theme.frameBg}`}
     >

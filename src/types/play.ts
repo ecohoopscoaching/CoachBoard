@@ -76,7 +76,7 @@ export interface Keyframe {
 export interface Play {
   id: string;
   title: string;
-  category: 'offense' | 'defense' | 'slob' | 'blob' | 'drill';
+  category: 'actions' | 'offense' | 'defense' | 'quick-hitter' | 'slob' | 'blob' | 'drill';
   courtType: CourtType;
   courtTheme: CourtTheme;
   keyframes: Keyframe[];

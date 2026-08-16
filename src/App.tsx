@@ -1,7 +1,7 @@
 import React from 'react';
 import confetti from 'canvas-confetti';
 import type { Play, ActiveTool, Point, Piece, Keyframe, AppMode, CourtType, BallState } from './types/play';
-import { PRESET_PLAYS } from './data/presetPlays';
+import { PRESET_PLAYS, DEFAULT_INITIAL_PLAY } from './data/presetPlays';
 import type { TemplateDefinition } from './data/presetPlays';
 import { BasketballCourt } from './components/Court/BasketballCourt';
 import { PieceLayer } from './components/Court/PieceLayer';
@@ -14,7 +14,11 @@ import { PlayDetailsModal } from './components/Modal/PlayDetailsModal';
 import { OutputExportModal } from './components/Modal/OutputExportModal';
 import { PlaybookSidebar } from './components/Playbook/PlaybookSidebar';
 import { soundEffects } from './services/soundEffects';
-import { interpolateKeyframePieces, interpolateKeyframeBall } from './utils/animation';
+import {
+  interpolateKeyframePieces,
+  interpolateKeyframeBall,
+  applyDrawingsToNextFrame,
+} from './utils/animation';
 import {
   Play as PlayIcon,
   Pause,
@@ -45,9 +49,9 @@ export function App() {
         }
       }
     } catch {
-      // fallback to preset
+      // fallback to initial default
     }
-    return PRESET_PLAYS[0];
+    return PRESET_PLAYS[0] || DEFAULT_INITIAL_PLAY;
   });
 
   const [activeFrameIndex, setActiveFrameIndex] = React.useState<number>(0);
@@ -57,7 +61,7 @@ export function App() {
   const [selectedPieceId, setSelectedPieceId] = React.useState<string | null>(null);
 
   // Undo / Redo History Stack
-  const [history, setHistory] = React.useState<Play[]>([PRESET_PLAYS[0]]);
+  const [history, setHistory] = React.useState<Play[]>([PRESET_PLAYS[0] || DEFAULT_INITIAL_PLAY]);
   const [historyIndex, setHistoryIndex] = React.useState<number>(0);
 
   // Animation Playback Engine States
@@ -148,7 +152,7 @@ export function App() {
       return;
     }
 
-    const stepDuration = 1.5 / playbackSpeed;
+    const stepDuration = 3.2 / playbackSpeed;
     const totalDurationSeconds = stepDuration * (totalKeyframes - 1);
 
     const stepTick = (timestamp: number) => {
@@ -209,6 +213,186 @@ export function App() {
   }, [isPlaying, currentPlay, playbackSpeed, isLooping, currentFrame]);
 
   // ================= COURT INTERACTION & PIECE ADDITION =================
+  const handleCourtDrop = (payload: any, point: Point) => {
+    if (isPlaying) return;
+    const newPieces = [...currentFrame.pieces];
+
+    if (payload.type === 'offense' || payload.tool === 'add_offense_circled' || payload.tool === 'add_offense_plain') {
+      const label = payload.label || `${newPieces.filter(p => p.team === 'offense').length + 1}`;
+      const existingIdx = newPieces.findIndex(p => p.team === 'offense' && p.label === label);
+
+      if (existingIdx >= 0) {
+        newPieces[existingIdx] = {
+          ...newPieces[existingIdx],
+          x: point.x,
+          y: point.y,
+          style: 'circle-number',
+        };
+        setSelectedPieceId(newPieces[existingIdx].id);
+      } else {
+        const newId = `off-${label}-${Date.now()}`;
+        newPieces.push({
+          id: newId,
+          label,
+          role: 'PG',
+          team: 'offense',
+          style: 'circle-number',
+          x: point.x,
+          y: point.y,
+        });
+        setSelectedPieceId(newId);
+      }
+      soundEffects.playClick();
+    } else if (payload.type === 'defense' || payload.tool === 'add_defense_x') {
+      const rawLabel = payload.label || `${newPieces.filter(p => p.team === 'defense').length + 1}`;
+      const label = rawLabel.startsWith('X') ? rawLabel : `X${rawLabel}`;
+      const existingIdx = newPieces.findIndex(p => p.team === 'defense' && p.label === label);
+
+      if (existingIdx >= 0) {
+        newPieces[existingIdx] = {
+          ...newPieces[existingIdx],
+          x: point.x,
+          y: point.y,
+          style: 'defense-x',
+        };
+        setSelectedPieceId(newPieces[existingIdx].id);
+      } else {
+        const newId = `def-${label}-${Date.now()}`;
+        newPieces.push({
+          id: newId,
+          label,
+          role: 'D1',
+          team: 'defense',
+          style: 'defense-x',
+          x: point.x,
+          y: point.y,
+        });
+        setSelectedPieceId(newId);
+      }
+      soundEffects.playClick();
+    } else if (payload.tool === 'add_ball') {
+      const nearbyPlayer = newPieces.find(p => Math.hypot(p.x - point.x, p.y - point.y) < 6);
+      updateCurrentFrame({
+        ball: {
+          x: point.x,
+          y: point.y,
+          heldByPlayerId: nearbyPlayer ? nearbyPlayer.id : null,
+          height: 0,
+        },
+      });
+      soundEffects.playClick();
+      return;
+    } else if (payload.tool === 'add_cone') {
+      const newId = `cone-${Date.now()}`;
+      newPieces.push({
+        id: newId,
+        label: 'C',
+        role: 'CONE',
+        team: 'equipment',
+        style: 'equipment',
+        x: point.x,
+        y: point.y,
+      });
+      setSelectedPieceId(newId);
+      soundEffects.playClick();
+    } else if (payload.tool === 'add_chair') {
+      const newId = `chair-${Date.now()}`;
+      newPieces.push({
+        id: newId,
+        label: 'CH',
+        role: 'CHAIR',
+        team: 'equipment',
+        style: 'equipment',
+        x: point.x,
+        y: point.y,
+      });
+      setSelectedPieceId(newId);
+      soundEffects.playClick();
+    } else if (payload.tool === 'add_text') {
+      const text = prompt('Enter tactical note label:') || 'Note';
+      const newId = `text-${Date.now()}`;
+      newPieces.push({
+        id: newId,
+        label: text,
+        role: 'TEXT',
+        team: 'annotation',
+        style: 'text',
+        customText: text,
+        x: point.x,
+        y: point.y,
+      });
+      setSelectedPieceId(newId);
+      soundEffects.playClick();
+    } else if (payload.tool === 'add_rect') {
+      const newId = `rect-${Date.now()}`;
+      newPieces.push({
+        id: newId,
+        label: '▢',
+        role: 'SHAPE_RECT',
+        team: 'annotation',
+        style: 'shape',
+        x: point.x,
+        y: point.y,
+      });
+      setSelectedPieceId(newId);
+      soundEffects.playClick();
+    } else if (payload.tool === 'add_circle') {
+      const newId = `cir-${Date.now()}`;
+      newPieces.push({
+        id: newId,
+        label: '◯',
+        role: 'SHAPE_CIRCLE',
+        team: 'annotation',
+        style: 'shape',
+        x: point.x,
+        y: point.y,
+      });
+      setSelectedPieceId(newId);
+      soundEffects.playClick();
+    } else if (payload.tool === 'add_triangle') {
+      const newId = `tri-${Date.now()}`;
+      newPieces.push({
+        id: newId,
+        label: '△',
+        role: 'SHAPE_TRIANGLE',
+        team: 'annotation',
+        style: 'shape',
+        x: point.x,
+        y: point.y,
+      });
+      setSelectedPieceId(newId);
+      soundEffects.playClick();
+    } else if (payload.tool === 'add_diamond') {
+      const newId = `dia-${Date.now()}`;
+      newPieces.push({
+        id: newId,
+        label: '◇',
+        role: 'SHAPE_DIAMOND',
+        team: 'annotation',
+        style: 'shape',
+        x: point.x,
+        y: point.y,
+      });
+      setSelectedPieceId(newId);
+      soundEffects.playClick();
+    } else if (payload.tool === 'add_line') {
+      const newId = `line-${Date.now()}`;
+      newPieces.push({
+        id: newId,
+        label: '—',
+        role: 'SHAPE_RECT',
+        team: 'annotation',
+        style: 'shape',
+        x: point.x,
+        y: point.y,
+      });
+      setSelectedPieceId(newId);
+      soundEffects.playClick();
+    }
+
+    updateCurrentFrame({ pieces: newPieces });
+  };
+
   const handleCourtClick = (point: Point) => {
     if (activeTool === 'select' || isPlaying) return;
 
@@ -241,6 +425,8 @@ export function App() {
         });
         setSelectedPieceId(newId);
       }
+
+      // Single placement: immediately switch back to Select/Move mode and clear selection
       setActiveTool('select');
       setSelectedPlayerLabel(null);
       soundEffects.playClick();
@@ -272,6 +458,8 @@ export function App() {
         });
         setSelectedPieceId(newId);
       }
+
+      // Single placement: immediately switch back to Select/Move mode and clear selection
       setActiveTool('select');
       setSelectedPlayerLabel(null);
       soundEffects.playClick();
@@ -304,8 +492,14 @@ export function App() {
       setActiveTool('select');
       soundEffects.playClick();
     } else if (activeTool === 'add_ball') {
+      const nearbyPlayer = newPieces.find(p => Math.hypot(p.x - point.x, p.y - point.y) < 6);
       updateCurrentFrame({
-        ball: { x: point.x, y: point.y, heldByPlayerId: null, height: 0 },
+        ball: {
+          x: point.x,
+          y: point.y,
+          heldByPlayerId: nearbyPlayer ? nearbyPlayer.id : null,
+          height: 0,
+        },
       });
       setActiveTool('select');
       soundEffects.playClick();
@@ -382,6 +576,20 @@ export function App() {
       setSelectedPieceId(newId);
       setActiveTool('select');
       soundEffects.playClick();
+    } else if (activeTool === 'add_line') {
+      const newId = `line-${Date.now()}`;
+      newPieces.push({
+        id: newId,
+        label: '—',
+        role: 'SHAPE_RECT',
+        team: 'annotation',
+        style: 'shape',
+        x: point.x,
+        y: point.y,
+      });
+      setSelectedPieceId(newId);
+      setActiveTool('select');
+      soundEffects.playClick();
     }
 
     updateCurrentFrame({ pieces: newPieces });
@@ -392,7 +600,18 @@ export function App() {
     const updatedPieces = currentFrame.pieces.map(p =>
       p.id === id ? { ...p, x: point.x, y: point.y } : p
     );
-    updateCurrentFrame({ pieces: updatedPieces });
+
+    // If this piece is holding the basketball, move the ball with the player!
+    let updatedBall = currentFrame.ball;
+    if (currentFrame.ball && currentFrame.ball.heldByPlayerId === id) {
+      updatedBall = {
+        ...currentFrame.ball,
+        x: point.x,
+        y: point.y,
+      };
+    }
+
+    updateCurrentFrame({ pieces: updatedPieces, ball: updatedBall });
   };
 
   const handleMoveBall = (point: Point) => {
@@ -415,9 +634,32 @@ export function App() {
   };
 
   const handleAddDrawing = (drawing: any) => {
-    updateCurrentFrame({
-      drawings: [...currentFrame.drawings, drawing],
-    });
+    const currentDrawings = [...currentFrame.drawings, drawing];
+    const updatedKeyframes = [...currentPlay.keyframes];
+
+    // 1. Update current frame drawings
+    updatedKeyframes[activeFrameIndex] = {
+      ...updatedKeyframes[activeFrameIndex],
+      drawings: currentDrawings,
+    };
+
+    // 2. Automatically advance players and the ball in the next frame if it exists!
+    if (activeFrameIndex < updatedKeyframes.length - 1) {
+      const nextFrameIdx = activeFrameIndex + 1;
+      const nextState = applyDrawingsToNextFrame(
+        updatedKeyframes[activeFrameIndex],
+        updatedKeyframes[nextFrameIdx]
+      );
+
+      updatedKeyframes[nextFrameIdx] = {
+        ...updatedKeyframes[nextFrameIdx],
+        pieces: nextState.pieces,
+        ball: nextState.ball !== null ? nextState.ball : updatedKeyframes[nextFrameIdx].ball,
+      };
+    }
+
+    const newPlay = { ...currentPlay, keyframes: updatedKeyframes };
+    pushState(newPlay);
   };
 
   const handleDeleteDrawing = (id: string) => {
@@ -439,12 +681,15 @@ export function App() {
   // ================= PHASE TIMELINE MANAGEMENT =================
   const handleAddNextFrame = () => {
     const lastFrame = currentPlay.keyframes[currentPlay.keyframes.length - 1];
+    // Automatically advance players to the exact end positions of all cuts, dribbles, screens, passes, and handoffs
+    const nextFrameState = applyDrawingsToNextFrame(lastFrame);
+
     const newFrame: Keyframe = {
       id: `kf-${Date.now()}`,
       title: `Phase ${currentPlay.keyframes.length + 1}`,
       duration: 1.5,
-      pieces: JSON.parse(JSON.stringify(lastFrame.pieces)),
-      ball: lastFrame.ball ? JSON.parse(JSON.stringify(lastFrame.ball)) : null,
+      pieces: nextFrameState.pieces,
+      ball: nextFrameState.ball,
       drawings: [],
     };
 
@@ -454,13 +699,21 @@ export function App() {
     };
     pushState(newPlay);
     setActiveFrameIndex(currentPlay.keyframes.length);
+    soundEffects.playClick();
   };
 
   const handleCloneFrame = (index: number) => {
     const targetFrame = currentPlay.keyframes[index];
-    const dupFrame: Keyframe = JSON.parse(JSON.stringify(targetFrame));
-    dupFrame.id = `kf-${Date.now()}`;
-    dupFrame.title = `${targetFrame.title} (Clone)`;
+    const nextFrameState = applyDrawingsToNextFrame(targetFrame);
+
+    const dupFrame: Keyframe = {
+      ...JSON.parse(JSON.stringify(targetFrame)),
+      id: `kf-${Date.now()}`,
+      title: `Phase ${index + 2}`,
+      pieces: nextFrameState.pieces,
+      ball: nextFrameState.ball,
+      drawings: [],
+    };
 
     const updatedKeyframes = [...currentPlay.keyframes];
     updatedKeyframes.splice(index + 1, 0, dupFrame);
@@ -468,6 +721,7 @@ export function App() {
     const newPlay = { ...currentPlay, keyframes: updatedKeyframes };
     pushState(newPlay);
     setActiveFrameIndex(index + 1);
+    soundEffects.playClick();
   };
 
   const handleAddEmptyFrame = () => {
@@ -648,6 +902,7 @@ export function App() {
               courtType={currentPlay.courtType}
               courtTheme={currentPlay.courtTheme}
               onCourtClick={handleCourtClick}
+              onCourtDrop={handleCourtDrop}
               innerRef={courtContainerRef}
             >
               {/* Drawing Layer */}
@@ -733,7 +988,7 @@ export function App() {
 
               {/* Speed selector */}
               <div className="flex items-center gap-1 bg-[#141414] p-1 rounded-lg border border-[#262626]">
-                {[0.5, 1, 1.5, 2].map(speed => (
+                {[0.5, 0.75, 1, 1.25, 1.5].map(speed => (
                   <button
                     key={speed}
                     onClick={() => {
